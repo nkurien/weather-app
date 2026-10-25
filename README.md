@@ -1,6 +1,13 @@
 # Weather
 
-A colour-driven London weather page. One static `index.html`, no build, data from [Open-Meteo](https://open-meteo.com/).
+A colour-driven weather page, London first. One static `index.html`, no build, no backend, no runtime dependencies. Forecast and place search come from [Open-Meteo](https://open-meteo.com/) straight from the visitor's browser.
+
+## What it does
+
+- Hour-by-hour temperature curve with rain bars, and the week as a row of sky-coloured ribbons. Drag across either to scrub through time.
+- The whole page sits on a sky driven by sun position and conditions (cloud, rain, fog, snow, storm), and glides when you scrub or change place. Honours `prefers-reduced-motion`.
+- **Add any city.** The `+` chip opens a search; picking a result adds a chip. Added places are kept in the browser and can be removed with the `x`.
+- **The moon.** At night the sky shows the moon at its real phase, tilt and position, and a line under the summary reads like "Waxing gibbous · 78% lit · sets 03:12".
 
 ## Run locally
 
@@ -9,14 +16,20 @@ npm run serve        # then open http://localhost:8080/#london
 npm install && npm test
 ```
 
-(Or just open `index.html` in a browser; it needs internet for the forecast.)
+(Or just open `index.html` in a browser; it needs internet for the forecast.) If port 8080 is taken, run `python3 -m http.server 8081` instead.
 
-## Deploy to weather.nathankurien.com
+## Tests
 
-1. Put this folder in its own GitHub repo (for example `nkurien/weather`).
-2. Cloudflare dashboard, Workers & Pages, Create, Pages, connect the repo.
-3. Build command: none. Build output directory: `/` (the repo root). Deploy.
-4. In the Pages project, Custom domains, add `weather.nathankurien.com`. Cloudflare creates the DNS record if the domain is on Cloudflare.
+`npm test` runs `tests/smoke.js` twice, in normal and reduced-motion mode (80 checks each). It uses jsdom with synthetic forecast and geocoding responses, so it never touches the network. It covers data grouping (including a 25-hour clock-change day), scrubbing, place switching, place search and removal, hostile URL hashes, and the moon maths. It cannot judge layout or looks, so check changes in a real browser too, at 360 px and desktop width.
+
+## How it works (technical notes)
+
+- **Forecast:** `api.open-meteo.com/v1/forecast`, 7 days hourly, default `best_match` model blend, `timezone=auto`, mph. Every place is shown in its own local time. Days are grouped by date string, never by index arithmetic, because clock changes make 23 and 25 hour days.
+- **Place search:** `geocoding-api.open-meteo.com/v1/search` (no key, CORS open). Typing waits 250 ms, newer searches cancel older ones, and the only thing sent is the text typed. Places within about 1 km of an existing chip select that chip instead of duplicating it.
+- **Places and sharing:** an added place's id is its URL hash, `#Name,lat,lon` (for example `#Lisbon%2C%20PT,38.72,-9.13`), so a link works for someone who has not added it. The hash is untrusted input: it is validated (coordinate ranges, stripped markup) and only ever written as text. Up to 12 added places are saved in `localStorage` under `wx-custom`; the last chosen place is `wx-place`. Both are optional and wrapped in try/catch.
+- **The moon:** phase, position and rise/set are calculated in the page from the date alone (low-precision astronomical formulas, about 0.3 degrees), so they need no data source and work for any city. Forecast times are local strings with no zone, so they are converted to UTC with `Intl` per hour. Rise and set are found by stepping the altitude every 5 minutes. The disc is tilted using the parallactic angle, so it is lit on the right in London and on the left in Sydney. It is drawn clear of the text: in the margins on wide screens, beside the temperature on phones.
+- **Rendering:** state is split into `S` (what the user chose), `T` (target visuals for the selected hour) and `D` (what is drawn, eased towards `T` each frame). The frame loop stops when nothing is moving and pauses when the tab is hidden.
+- **External requests:** only the Open-Meteo forecast and geocoding APIs and the Fraunces Google Font (with a serif fallback).
 
 ## Link it from the Hugo site
 
@@ -41,10 +54,10 @@ Adjust `weight` to place it in the nav.
 - It uses PaperMod's `--border`, `--secondary` and `--primary` CSS variables; check these names against your PaperMod version.
 - It calls Open-Meteo straight from the visitor's browser (no Cloudflare function needed) and fails silently, so it never breaks the page.
 
-## Changing locations
+## Changing the default places
 
-Edit the `PLACES` array at the top of the script in `index.html` (id, name, latitude, longitude). The id is also the URL hash, so `/#greenwich` opens straight to Greenwich.
+The five default chips are the `PLACES` array at the top of the script in `index.html` (id, name, latitude, longitude). The id is also the URL hash, so `/#greenwich` opens straight to Greenwich. Added places are appended to this list at runtime and are never written back to the file.
 
 ## Credits
 
-Forecast data by [Open-Meteo.com](https://open-meteo.com/) (CC BY 4.0, free for non-commercial use). Keep the footer attribution.
+Forecast data and place search by [Open-Meteo.com](https://open-meteo.com/) (CC BY 4.0, free for non-commercial use), with place names from [GeoNames](https://www.geonames.org/). Keep the footer attribution.
