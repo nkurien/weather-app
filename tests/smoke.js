@@ -46,7 +46,7 @@ const daily = {
   sunrise: dayKeys.map((k, i) => `${k}T0${6 + (i > 0 ? 1 : 0)}:${pad(40 + i)}`),
   sunset: dayKeys.map((k, i) => `${k}T16:${pad(35 - i * 2)}`),
 };
-const FORECAST = { hourly: H, daily, current: { time: '2026-10-25T21:15', temperature_2m: 10 } };
+const FORECAST = { timezone: 'Europe/London', utc_offset_seconds: 0, hourly: H, daily, current: { time: '2026-10-25T21:15', temperature_2m: 10 } };
 
 // ---- synthetic geocoding results (Open-Meteo shape)
 const GEO_RESULTS = {
@@ -138,6 +138,13 @@ function ptr(node, type, x, pointerType) {
   check('hero marked loaded', !d.getElementById('hero').classList.contains('loading'));
   check('updated footer set', /^Updated \d\d:\d\d$/.test(txt('updated')), txt('updated'));
 
+  // ---- the moon at night: 21:00 on 25 Oct 2026 is a full moon, well up in the south-east
+  const moonEl = d.getElementById('moonLine');
+  check('moon line shown at night', moonEl.classList.contains('on') && moonEl.getAttribute('aria-hidden') === 'false');
+  check('moon line reads phase, lit and set time', /^Full moon · 100% lit · sets 0[67]:\d\d$/.test(txt('moonTxt')), txt('moonTxt'));
+  check('moon glyph path has no NaN', /^M0,-6A6,6 0 0 1 0,6A/.test(d.getElementById('moonGlyph').getAttribute('d')) && !/NaN/.test(d.getElementById('moonGlyph').getAttribute('d')));
+  check('sky moon is up, nearly full, lit on the right (waxing, northern hemisphere)', w.__wx.T.moonB > 0.5 && w.__wx.T.moonF > 0.95 && w.__wx.T.moonVx > 0, [w.__wx.T.moonB, w.__wx.T.moonF, w.__wx.T.moonVx].map(v => v.toFixed(2)).join(' '));
+
   // ---- scrub the week ribbon on day 1 (rainy), mouse
   const day1 = d.querySelectorAll('.wrow')[1].querySelector('.ribbon');
   const nightInk = d.documentElement.style.getPropertyValue('--ink');
@@ -154,6 +161,7 @@ function ptr(node, type, x, pointerType) {
   const dayInk = d.documentElement.style.getPropertyValue('--ink');
   check('ink flipped dark for a rainy midday', +dayInk.split(',')[0] < 120, nightInk + ' -> ' + dayInk);
   check('eased rain value reached target', Math.abs(w.__wx.D.rain - w.__wx.T.rain) < 0.01 && w.__wx.D.rain > 0.2, w.__wx.D.rain.toFixed(3));
+  check('moon line hidden at midday', !moonEl.classList.contains('on') && moonEl.getAttribute('aria-hidden') === 'true');
 
   // ---- keyboard
   const curve = d.getElementById('curve');
@@ -272,6 +280,18 @@ function ptr(node, type, x, pointerType) {
   check('bad hashes rejected', ['x,999,0', 'x,0,181', 'a,b,c', 'x,1', 'x,1,2,3', ',1,2', '%E0%A4%A,1,1', 'x,1e9,0', 'london', ''].every(h => ph(h) === null));
   const sneaky = ph('%3Cimg%20src%3Dx%20onerror%3Dalert(1)%3E,1,1');
   check('markup stripped from hash names', sneaky && !/[<>]/.test(sneaky.name), sneaky && sneaky.name);
+
+  // ---- the moon maths itself
+  const { moonAt, moonEvent, phaseName } = w.__wx, R = Math.PI / 180;
+  check('full moon on 26 Oct 2026 04:12 UTC', Math.abs(moonAt(Date.UTC(2026, 9, 26, 4, 12), 51.5, -0.12).phase - 0.5) < 0.03, moonAt(Date.UTC(2026, 9, 26, 4, 12), 51.5, -0.12).phase.toFixed(3));
+  const nm = moonAt(Date.UTC(2026, 10, 9, 8, 0), 51.5, -0.12);
+  check('new moon on 9 Nov 2026 is almost unlit', nm.lit < 0.02 && phaseName(nm.phase) === 'New moon', nm.lit.toFixed(3) + ' ' + phaseName(nm.phase));
+  const rise = moonEvent(Date.UTC(2026, 9, 25, 12, 0), 51.4826, 0.0077, false);
+  check('full moon rises around sunset', rise && rise > Date.UTC(2026, 9, 25, 14, 30) && rise < Date.UTC(2026, 9, 25, 18, 0), rise && new Date(rise).toISOString());
+  const peakVx = (lat, lon) => { let best = null; for (let i = 0; i < 288; i++) { const s = moonAt(Date.UTC(2026, 9, 22, 6, 0) + i * 5 * 6e4, lat, lon); if (!best || s.alt > best.alt) best = s; } return { vx: -Math.sin(best.tilt), phase: best.phase }; };
+  const lon = peakVx(51.5, -0.12), syd = peakVx(-33.87, 151.2);
+  check('waxing moon is lit on the right in London, the left in Sydney', lon.phase < 0.5 && lon.vx > 0.5 && syd.vx < -0.5, lon.vx.toFixed(2) + ' vs ' + syd.vx.toFixed(2));
+  check('phase names cover the cycle', [0, 0.1, 0.25, 0.4, 0.5, 0.6, 0.75, 0.9, 0.99].map(phaseName).join(',') === 'New moon,Waxing crescent,First quarter,Waxing gibbous,Full moon,Waning gibbous,Last quarter,Waning crescent,New moon');
 
   console.log(`\n=== smoke test (${reduceMotion ? 'reduced motion' : 'full motion'}) ===`);
   let fail = 0;

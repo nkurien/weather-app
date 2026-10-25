@@ -113,6 +113,11 @@ footer a{color:inherit;text-underline-offset:3px}
 .deg{font-size:.4em;margin:.08em 0 0 .06em;opacity:.75;letter-spacing:0}
 .cond{font-family:var(--serif);font-style:italic;font-weight:300;font-size:clamp(1.55rem,5.2vw,2.1rem);margin-top:16px;letter-spacing:-.01em}
 .summary{margin-top:6px;color:var(--soft);font-size:1rem;max-width:36ch;min-height:3em}
+.moon{display:flex;align-items:center;gap:.65em;margin-top:10px;min-height:1.5em;color:var(--soft);font-size:.9rem;opacity:0;transition:opacity .6s}
+.moon.on{opacity:1}
+.mg{flex:none;width:14px;height:14px;overflow:visible}
+.mg circle{fill:none;stroke:rgb(var(--ink));stroke-opacity:.4;stroke-width:1}
+.mg path{fill:rgb(var(--ink));fill-opacity:.9}
 .fade{transition:opacity .14s ease}
 .fade.out{opacity:0}
 
@@ -206,6 +211,7 @@ h2{font-family:var(--serif);font-weight:400;font-size:1.3rem;letter-spacing:-.01
       <div class="temp" aria-hidden="true"><span id="tempNum">&ndash;</span><span class="deg">&deg;</span></div>
       <p class="cond fade" id="cond">&nbsp;</p>
       <p class="summary fade" id="summary"></p>
+      <p class="moon" id="moonLine" aria-hidden="true"><svg class="mg" viewBox="-7 -7 14 14" aria-hidden="true"><circle r="6"/><path id="moonGlyph"/></svg><span class="fade" id="moonTxt"></span></p>
     </section>
 
     <section class="stats" aria-label="Details">
@@ -337,6 +343,72 @@ function inkFor(top,bot){
 }
 
 /* =====================================================================
+   3b. THE MOON: phase, position and rise/set from the date alone
+   Low-precision formulas (about 0.3 degrees): plenty for a sky glow and
+   rise/set times good to a few minutes. No data source, so it works for
+   any place and any date. Azimuth is measured from south, west positive.
+===================================================================== */
+var RAD=Math.PI/180, DAY_MS=864e5, MOON_H0=0.133*RAD;
+function moonAt(ms,lat,lon){
+  var d=ms/DAY_MS+2440587.5-2451545, e=RAD*23.4397;
+  var L=RAD*(218.316+13.176396*d), M=RAD*(134.963+13.064993*d), F=RAD*(93.272+13.22935*d);
+  var l=L+RAD*6.289*Math.sin(M), b=RAD*5.128*Math.sin(F), mdist=385001-20905*Math.cos(M);
+  var ra=Math.atan2(Math.sin(l)*Math.cos(e)-Math.tan(b)*Math.sin(e),Math.cos(l));
+  var dec=Math.asin(Math.sin(b)*Math.cos(e)+Math.cos(b)*Math.sin(e)*Math.sin(l));
+  var sM=RAD*(357.5291+0.98560028*d);
+  var sl=sM+RAD*(1.9148*Math.sin(sM)+0.02*Math.sin(2*sM)+0.0003*Math.sin(3*sM))+RAD*102.9372+Math.PI;
+  var sra=Math.atan2(Math.sin(sl)*Math.cos(e),Math.cos(sl)), sdec=Math.asin(Math.sin(sl)*Math.sin(e)), sdist=149598000;
+  var phi=Math.acos(Math.sin(sdec)*Math.sin(dec)+Math.cos(sdec)*Math.cos(dec)*Math.cos(sra-ra));
+  var inc=Math.atan2(sdist*Math.sin(phi),mdist-sdist*Math.cos(phi));
+  var ang=Math.atan2(Math.cos(sdec)*Math.sin(sra-ra),Math.sin(sdec)*Math.cos(dec)-Math.cos(sdec)*Math.sin(dec)*Math.cos(sra-ra));
+  var H=RAD*(280.16+360.9856235*d)+RAD*lon-ra, la=RAD*lat;
+  return {
+    phase:0.5+0.5*inc*(ang<0?-1:1)/Math.PI,   // 0 new, 0.5 full, below 0.5 waxing
+    lit:(1+Math.cos(inc))/2,                    // fraction of the disc lit
+    alt:Math.asin(Math.sin(la)*Math.sin(dec)+Math.cos(la)*Math.cos(dec)*Math.cos(H)),
+    az:Math.atan2(Math.sin(H),Math.cos(H)*Math.sin(la)-Math.tan(dec)*Math.cos(la)),
+    tilt:ang-Math.atan2(Math.sin(H),Math.tan(la)*Math.cos(dec)-Math.sin(dec)*Math.cos(H))  // bright limb vs zenith
+  };
+}
+function moonEvent(ms,lat,lon,up){   // next time the moon sets (if up) or rises (if down), or null within 30 h
+  var step=5*60e3, prev=moonAt(ms,lat,lon).alt-MOON_H0;
+  for(var t=ms+step;t<=ms+30*36e5;t+=step){
+    var a=moonAt(t,lat,lon).alt-MOON_H0;
+    if(up?a<=0:a>0) return t-step+step*prev/(prev-a);
+    prev=a;
+  }
+  return null;
+}
+var PHASES=[[0.03,'New moon'],[0.22,'Waxing crescent'],[0.28,'First quarter'],[0.47,'Waxing gibbous'],[0.53,'Full moon'],
+  [0.72,'Waning gibbous'],[0.78,'Last quarter'],[0.97,'Waning crescent']];
+function phaseName(p){
+  for(var i=0;i<PHASES.length;i++){if(p<PHASES[i][0]) return PHASES[i][1];}
+  return 'New moon';
+}
+
+/* Forecast times are local strings with no zone, so the moon needs them as UTC.
+   Intl works the offset out per hour (clock changes included); the repeated
+   hour on a clock-change night can be an hour out, which the moon will not notice. */
+var zoneFmt={};
+function zoneOff(tz,ms){
+  if(!tz) return 0;
+  var f=zoneFmt[tz]||(zoneFmt[tz]=new Intl.DateTimeFormat('en-GB',{timeZone:tz,hourCycle:'h23',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'}));
+  var p={};
+  f.formatToParts(new Date(ms)).forEach(function(x){p[x.type]=x.value;});
+  return Date.UTC(+p.year,p.month-1,+p.day,+p.hour,+p.minute,+p.second)-Math.floor(ms/1000)*1000;
+}
+function localToUtc(str,tz,fallbackSec){
+  var loc=Date.UTC(+str.slice(0,4),+str.slice(5,7)-1,+str.slice(8,10),+str.slice(11,13),+str.slice(14,16));
+  try{return loc-zoneOff(tz,loc-zoneOff(tz,loc));}catch(_){return loc-fallbackSec*1e3;}
+}
+function localParts(ms,tz){
+  var o=0;try{o=zoneOff(tz,ms);}catch(_){}
+  var d=new Date(ms+o);
+  return {day:Math.floor((ms+o)/DAY_MS),hh:d.getUTCHours(),mm:d.getUTCMinutes(),dow:d.getUTCDay()};
+}
+function pad2(n){return ('0'+n).slice(-2);}
+
+/* =====================================================================
    4. DATA: Open-Meteo JSON -> hours[] and days[]
    Days are grouped by date string, never by index arithmetic, because
    the clocks change in late October/March (a day can have 23 or 25 hours).
@@ -352,6 +424,7 @@ function condLabel(h){
 
 function processData(json,place){
   var H=json.hourly, Dl=json.daily, dIdx={}, hours=[], days=[], seen={};
+  var tz=json.timezone, offSec=json.utc_offset_seconds||0;
   Dl.time.forEach(function(k,i){dIdx[k]=i;});
   for(var i=0;i<H.time.length;i++){
     var t=H.time[i], key=t.slice(0,10);
@@ -373,8 +446,8 @@ function processData(json,place){
     var c=+t.slice(11,13)+(+t.slice(14,16))/60, alt, morning;
     if(c>=D.sr&&c<=D.ss){var f=(c-D.sr)/(D.ss-D.sr);alt=Math.sin(Math.PI*f);morning=f<0.5;}
     else{var dh=c<D.sr?D.sr-c:c-D.ss;alt=-Math.min(1,dh/1.5);morning=c<D.sr;}
-    var nightLen=24-(D.ss-D.sr), nf=clamp((c>=D.ss?c-D.ss:c+24-D.ss)/nightLen);
     var df=(c-D.sr)/(D.ss-D.sr);
+    var utc=localToUtc(t,tz,offSec), mo=moonAt(utc,place.lat,place.lon), mh=mo.alt/RAD;
     var bp=basePalette(alt,morning);
     var sky=skyFor(bp[0],bp[1],{cloud:cloud,rain:rainI,fog:fog,snow:snowI,storm:storm},alt);
     var wd=g(H.wind_direction_10m,0);
@@ -388,14 +461,16 @@ function processData(json,place){
       sunX:0.12+0.76*clamp(df,-0.15,1.15),
       sunY:alt>=0?0.64-0.5*alt:0.64+0.25*clamp(-alt),
       sunB:smooth(-0.2,0.05,alt),
-      moonX:0.85-0.7*nf, moonY:0.5-0.34*Math.sin(Math.PI*nf),
-      moonB:smooth(-0.1,-0.5,alt)
+      moonX:0.5+0.38*clamp(mo.az/(Math.PI/2),-1.15,1.15), moonY:0.64-0.5*clamp(mh/65,-0.5,1),
+      moonB:smooth(0,6,mh)*(1-0.65*smooth(-0.25,0.25,alt)),
+      moonF:mo.lit, moonVx:-Math.sin(mo.tilt), moonVy:-Math.cos(mo.tilt),
+      moon:mo, utc:utc, moonTxt:''
     });
   }
   var nowKey=json.current&&json.current.time?json.current.time.slice(0,13):'';
   var nowIdx=0;
   for(var j=0;j<hours.length;j++){if(hours[j].t.slice(0,13)===nowKey){nowIdx=j;break;}}
-  return {place:place,hours:hours,days:days,nowIdx:nowIdx};
+  return {place:place,hours:hours,days:days,nowIdx:nowIdx,tz:tz};
 }
 
 var cache={};
@@ -417,22 +492,23 @@ function load(place,force){
    5. STATE: S is what the user has chosen, T is where the visuals are
    heading, D is where they currently are (eased towards T every frame).
 ===================================================================== */
-var S={place:PLACES[0],hours:[],days:[],nowIdx:0,pos:0,curDay:-1,curN:24,followNow:true,selTime:null,updatedAt:0};
+var S={place:PLACES[0],dataPlace:null,tz:'',hours:[],days:[],nowIdx:0,pos:0,curDay:-1,curN:24,followNow:true,selTime:null,updatedAt:0};
 var T={top:[8,12,30],bot:[20,26,56],cloud:0,rain:0,snow:0,fog:0,storm:0,wx:0,wind:0,temp:0,
-  sunX:.5,sunY:1,sunB:0,moonX:.5,moonY:.4,moonB:0,cf:.5,dmin:0,dmax:10,
+  sunX:.5,sunY:1,sunB:0,moonX:.5,moonY:.4,moonB:0,moonF:.5,moonVx:1,moonVy:0,cf:.5,dmin:0,dmax:10,
   cv:new Array(48).fill(0),bar:new Array(25).fill(0),barOp:new Array(25).fill(0)};
 var D={top:[8,12,30],bot:[20,26,56],cloud:0,rain:0,snow:0,fog:0,storm:0,wx:0,wind:0,temp:0,
-  sunX:.5,sunY:1,sunB:0,moonX:.5,moonY:.4,moonB:0,cf:.5,dmin:0,dmax:10,
+  sunX:.5,sunY:1,sunB:0,moonX:.5,moonY:.4,moonB:0,moonF:.5,moonVx:1,moonVy:0,cf:.5,dmin:0,dmax:10,
   cv:new Array(48).fill(0),bar:new Array(25).fill(0),barOp:new Array(25).fill(0),ink:[246,243,235],haveCurve:false};
 var SCALARS=[['cloud',.002,'c'],['rain',.002,'c'],['snow',.002,'c'],['fog',.002,'c'],['storm',.002,'c'],['wx',.002,'c'],
   ['wind',.05,'c'],['temp',.02,'n'],['sunX',.001,'c'],['sunY',.001,'c'],['sunB',.002,'c'],['moonX',.001,'c'],['moonY',.001,'c'],
-  ['moonB',.002,'c'],['cf',.0005,'x'],['dmin',.02,'n'],['dmax',.02,'n']];
+  ['moonB',.002,'c'],['moonF',.002,'c'],['moonVx',.002,'c'],['moonVy',.002,'c'],['cf',.0005,'x'],['dmin',.02,'n'],['dmax',.02,'n']];
 
 /* =====================================================================
    6. DOM
 ===================================================================== */
 var el={
   hero:$('hero'),place:$('placeName'),when:$('whenLabel'),temp:$('tempNum'),cond:$('cond'),summary:$('summary'),
+  moon:$('moonLine'),moonTxt:$('moonTxt'),glyph:$('moonGlyph'),
   feelV:$('feelV'),feelS:$('feelS'),windV:$('windV'),windS:$('windS'),arrow:$('windArrow'),
   rainV:$('rainV'),rainS:$('rainS'),dayV:$('dayV'),dayS:$('dayS'),dayTitle:$('dayTitle'),nowBtn:$('nowBtn'),
   curve:$('curve'),week:$('weekList'),places:$('places'),err:$('err'),updated:$('updated'),theme:$('themeColor')
@@ -586,6 +662,23 @@ function summarise(pos){
   return look-pos>=6?'Dry for the next '+(look-pos)+' hours.':'Dry for the rest of the forecast.';
 }
 
+/* "Waxing gibbous · 78% lit · sets 03:12", worked out once per hour and kept */
+function moonLine(h){
+  if(h.moonTxt) return h.moonTxt;
+  var m=h.moon, p=S.dataPlace||S.place, up=m.alt>MOON_H0, ev=moonEvent(h.utc,p.lat,p.lon,up), part;
+  if(ev){
+    var a=localParts(h.utc,S.tz), b=localParts(ev,S.tz), when=pad2(b.hh)+':'+pad2(b.mm);
+    if(b.day-a.day>1||(b.day-a.day===1&&ev-h.utc>14*36e5)) when=DOW[b.dow].slice(0,3)+' '+when;
+    part=(up?'sets ':'rises ')+when;
+  }else part=up?'up all night':'below the horizon';
+  return h.moonTxt=phaseName(m.phase)+' · '+Math.round(m.lit*100)+'% lit · '+part;
+}
+function setGlyph(m){
+  var t=6*(1-2*m.lit);   // where the terminator crosses the equator; the lit limb is drawn on the right
+  el.glyph.setAttribute('d','M0,-6A6,6 0 0 1 0,6A'+Math.max(Math.abs(t),0.001).toFixed(2)+',6 0 0 '+(t>0?0:1)+' 0,-6Z');
+  el.glyph.setAttribute('transform',m.phase>0.5?'scale(-1,1)':'');
+}
+
 var arrowAng=0;
 function setArrow(target){
   var d=((target-arrowAng)%360+540)%360-180;
@@ -624,6 +717,7 @@ function applyPos(){
   T.top=h.top;T.bot=h.bot;T.cloud=h.cloud;T.rain=h.rain;T.snow=h.snow;T.fog=h.fog;T.storm=h.storm;
   T.wx=h.wx;T.wind=h.wind;T.temp=h.temp;
   T.sunX=h.sunX;T.sunY=h.sunY;T.sunB=h.sunB;T.moonX=h.moonX;T.moonY=h.moonY;T.moonB=h.moonB;
+  T.moonF=h.moonF;T.moonVx=h.moonVx;T.moonVy=h.moonVy;
   if(S.curDay!==h.day){S.curDay=h.day;setDayTargets(h.day);}
   T.cf=(h.k+0.5)/day.n;
 
@@ -631,6 +725,9 @@ function applyPos(){
   setText(el.when,whenLabel(h));
   setText(el.cond,condLabel(h));
   setText(el.summary,summarise(S.pos));
+  var night=h.alt<0.1;   // dusk to dawn: the moon line is a night-view thing
+  el.moon.classList.toggle('on',night);el.moon.setAttribute('aria-hidden',night?'false':'true');
+  if(night){setText(el.moonTxt,moonLine(h));setGlyph(h.moon);}
   setText(el.dayTitle,(h.day===0?'Today · ':'')+DOW[di.dow]+' '+di.d+' '+MON[di.m]);
 
   setText(el.feelV,Math.round(h.feels)+'°');
@@ -836,6 +933,31 @@ function seedParticles(){
   for(var i=0;i<RAIN_MAX;i++)RAINP.push({x:rnd()*VW,y:rnd()*VH,z:rnd(),len:10+rnd()*16,v:700+rnd()*500});
   for(var j=0;j<SNOW_MAX;j++)SNOWP.push({x:rnd()*VW,y:rnd()*VH,r:1.1+rnd()*1.8,v:30+rnd()*45,ph:rnd()*6.28});
 }
+/* Where the moon is drawn, in px. It keeps clear of the text: on wide screens it lives in
+   the margins either side of the column (crossing it quickly when it passes due south);
+   on phones and tablets it stays in the empty space to the right of the big temperature. */
+function moonPos(){
+  var gut=(VW-740)/2, s=clamp((D.moonX-0.5)/0.44,-1,1);
+  if(gut<70) return [VW*(0.6+0.3*(s+1)/2),190+45*clamp((D.moonY-0.14)/0.5,0,1.4)];   // px: the hero sits at a fixed offset from the top
+  var edge=gut*0.9, as=Math.abs(s), k=0.12, x;
+  if(as<k) x=VW/2+(s/k)*(VW/2-edge);
+  else{var off=edge-gut*0.78*(as-k)/(1-k);x=s<0?off:VW-off;}
+  return [x,D.moonY*VH];
+}
+var moonTh=0;
+function drawMoon(x,y,r,a){
+  // work in a frame where the lit limb faces +x; the terminator is half an ellipse
+  var t=r*(1-2*D.moonF);
+  if(Math.hypot(D.moonVx,D.moonVy)>0.05) moonTh=Math.atan2(D.moonVy,D.moonVx);
+  ctx.save();ctx.translate(x,y);ctx.rotate(moonTh);
+  ctx.beginPath();ctx.arc(0,0,r,0,6.2832);
+  ctx.fillStyle='rgba(180,195,230,'+(0.14*a).toFixed(3)+')';ctx.fill();   // the unlit side, faintly
+  ctx.lineWidth=1;ctx.strokeStyle='rgba(205,218,255,'+(0.3*a).toFixed(3)+')';ctx.stroke();
+  ctx.beginPath();ctx.arc(0,0,r,-Math.PI/2,Math.PI/2,false);
+  ctx.ellipse(0,0,Math.max(0.01,Math.abs(t)),r,0,Math.PI/2,-Math.PI/2,t>0);
+  ctx.fillStyle='rgba(240,244,255,'+(0.9*a).toFixed(3)+')';ctx.fill();
+  ctx.restore();
+}
 var clk=0;
 function paintSky(dt){
   ctx.setTransform(DPR,0,0,DPR,0,0);
@@ -854,14 +976,14 @@ function paintSky(dt){
     ctx.beginPath();ctx.arc(x,y,Math.max(9,VW*0.016),0,6.2832);
     ctx.fillStyle='rgba(255,247,226,'+(0.8*a).toFixed(3)+')';ctx.fill();
   }
-  // moon
+  // moon: glow scales with how much is lit, then the disc at its real phase and tilt
   a=D.moonB*(1-D.cloud*0.9)*(1-D.fog*0.5)*(1-D.rain*0.4);
   if(a>0.01){
-    x=D.moonX*VW;y=D.moonY*VH;R=Math.max(90,VW*0.14);
+    var mp=moonPos();x=mp[0];y=mp[1];R=Math.max(90,VW*0.14)*(0.55+0.45*D.moonF);
     g=ctx.createRadialGradient(x,y,0,x,y,R);
-    g.addColorStop(0,'rgba(205,218,255,'+(0.28*a).toFixed(3)+')');g.addColorStop(1,'rgba(205,218,255,0)');
+    g.addColorStop(0,'rgba(205,218,255,'+(0.3*a*(0.3+0.7*D.moonF)).toFixed(3)+')');g.addColorStop(1,'rgba(205,218,255,0)');
     ctx.fillStyle=g;ctx.fillRect(x-R,y-R,R*2,R*2);
-    ctx.beginPath();ctx.arc(x,y,10,0,6.2832);ctx.fillStyle='rgba(240,244,255,'+(0.88*a).toFixed(3)+')';ctx.fill();
+    drawMoon(x,y,Math.max(13,Math.min(22,VW*0.02)),a);
   }
   // clouds
   if(D.cloud>0.01){
@@ -976,6 +1098,7 @@ function selectPlace(id,opts){
   return load(place,opts.force).then(function(data){
     if(my!==reqId) return;
     S.hours=data.hours;S.days=data.days;S.nowIdx=data.nowIdx;S.curDay=-1;S.updatedAt=Date.now();
+    S.dataPlace=data.place;S.tz=data.tz;
     var idx=S.nowIdx;
     if(!S.followNow&&S.selTime){
       for(var i=0;i<S.hours.length;i++){if(S.hours[i].t===S.selTime){idx=i;break;}}
@@ -1118,7 +1241,7 @@ selectPlace(startId);
 kick();
 
 /* tiny hook for tests / debugging */
-window.__wx={S:S,T:T,D:D,processData:processData,skyFor:skyFor,basePalette:basePalette,summarise:summarise,placeFromHash:placeFromHash};
+window.__wx={S:S,T:T,D:D,processData:processData,skyFor:skyFor,basePalette:basePalette,summarise:summarise,placeFromHash:placeFromHash,moonAt:moonAt,moonEvent:moonEvent,phaseName:phaseName};
 })();
 </script>
 </body>
