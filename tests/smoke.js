@@ -48,6 +48,17 @@ const daily = {
 };
 const FORECAST = { hourly: H, daily, current: { time: '2026-10-25T21:15', temperature_2m: 10 } };
 
+// ---- synthetic geocoding results (Open-Meteo shape)
+const GEO_RESULTS = {
+  lis: [
+    { name: 'Lisbon', latitude: 38.71667, longitude: -9.13333, country_code: 'PT', country: 'Portugal', admin1: 'Lisbon' },
+    { name: 'Lisburn', latitude: 54.5162, longitude: -6.058, country_code: 'GB', country: 'United Kingdom', admin1: 'Northern Ireland' },
+  ],
+  greenwich: [
+    { name: 'Greenwich', latitude: 51.48, longitude: 0.0, country_code: 'GB', country: 'United Kingdom', admin1: 'England' },
+  ],
+};
+
 // ---- environment
 const errors = [];
 const vc = new VirtualConsole();
@@ -72,7 +83,17 @@ const dom = new JSDOM(HTML, {
     Object.defineProperty(w.HTMLElement.prototype, 'clientHeight', { get() { return 226; } });
     w.Element.prototype.getBoundingClientRect = function () { return { left: 0, top: 0, width: 600, height: 40, right: 600, bottom: 40 }; };
     w.Element.prototype.scrollIntoView = function () {};
-    w.fetch = url => { w.__lastUrl = url; return Promise.resolve({ ok: true, json: () => Promise.resolve(JSON.parse(JSON.stringify(FORECAST))) }); };
+    w.__geoCalls = [];
+    w.fetch = url => {
+      if (/geocoding-api/.test(url)) {
+        w.__geoCalls.push(url);
+        if (w.__geoFail) return Promise.reject(new Error('offline'));
+        const q = new URL(url).searchParams.get('name').toLowerCase();
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(GEO_RESULTS[q] ? { results: GEO_RESULTS[q] } : { generationtime_ms: 0.1 }) });
+      }
+      w.__lastUrl = url;
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(JSON.parse(JSON.stringify(FORECAST))) });
+    };
   },
 });
 const w = dom.window, d = w.document;
@@ -187,6 +208,70 @@ function ptr(node, type, x, pointerType) {
   check('place switch updates label and URL', txt('placeName') === 'Central London' && /latitude=51\.5074/.test(w.__lastUrl), txt('placeName'));
   check('hash updated', w.location.hash === '#london', w.location.hash);
   check('selected time kept across place switch', S.hours[S.pos].t === S.selTime);
+
+  // ---- add a place by search
+  const finder = d.getElementById('finder'), q = d.getElementById('q'), addBtn = d.querySelector('.chip.add');
+  const chipNames = () => [...d.querySelectorAll('.chip[data-id]')].map(c => c.textContent);
+  const type = async v => { q.value = v; q.dispatchEvent(new w.Event('input', { bubbles: true })); await sleep(450); };
+  const key = k => q.dispatchEvent(Object.assign(new w.Event('keydown', { bubbles: true, cancelable: true }), { key: k }));
+  check('search closed by default, + pinned outside the scrolling row', finder.hidden && d.getElementById('placebar').lastElementChild === addBtn && !d.getElementById('places').contains(addBtn));
+  addBtn.dispatchEvent(new w.Event('click', { bubbles: true }));
+  check('+ opens the finder', !finder.hidden && addBtn.getAttribute('aria-expanded') === 'true');
+  await type('L');
+  check('one character does not search', w.__geoCalls.length === 0);
+  q.value = 'Lis'; q.dispatchEvent(new w.Event('input', { bubbles: true }));
+  key('Enter');
+  check('Enter before results arrive does nothing', chipNames().length === 5 && w.__geoCalls.length === 0);
+  await sleep(450);
+  const rows = [...d.querySelectorAll('#results li')];
+  check('search sent once, debounced', w.__geoCalls.length === 1 && /name=Lis&count=6/.test(w.__geoCalls[0]), w.__geoCalls[0]);
+  check('two results listed', rows.length === 2 && rows[0].querySelector('span').textContent === 'Lisbon' && /Portugal/.test(rows[0].querySelector('small').textContent), rows.map(r => r.textContent).join(' | '));
+  check('first result active', rows[0].classList.contains('act') && q.getAttribute('aria-activedescendant') === 'r0');
+  key('ArrowDown'); key('ArrowUp');
+  check('arrows move active row and wrap', d.querySelectorAll('#results li')[0].classList.contains('act'));
+  key('Enter');
+  await sleep(1500);
+  check('Lisbon chip added and selected', chipNames().includes('Lisbon, PT') && d.querySelector('.chip[aria-pressed="true"]').textContent === 'Lisbon, PT', chipNames().join(','));
+  check('finder closed after pick', finder.hidden);
+  check('forecast fetched with auto timezone', /latitude=38\.72&longitude=-9\.13/.test(w.__lastUrl) && /timezone=auto/.test(w.__lastUrl) && !/Europe/.test(w.__lastUrl), w.__lastUrl.slice(0, 80));
+  check('hero shows new place', txt('placeName') === 'Lisbon, PT', txt('placeName'));
+  check('hash is shareable', w.location.hash === '#Lisbon%2C%20PT,38.72,-9.13', w.location.hash);
+  check('added place saved', JSON.parse(w.localStorage.getItem('wx-custom')).length === 1);
+  check('only added chips can be removed', d.querySelectorAll('.x').length === 1);
+
+  // ---- a place already on the list is selected, not duplicated
+  addBtn.dispatchEvent(new w.Event('click', { bubbles: true }));
+  await type('Greenwich');
+  d.querySelector('#results li').dispatchEvent(new w.Event('click', { bubbles: true }));
+  await sleep(1200);
+  check('duplicate selects the existing chip', chipNames().length === 6 && txt('placeName') === 'Greenwich', chipNames().join(','));
+
+  // ---- failure and empty states
+  addBtn.dispatchEvent(new w.Event('click', { bubbles: true }));
+  await type('zzzz');
+  check('no results message', /No places found/.test(txt('fmsg')), txt('fmsg'));
+  w.__geoFail = true;
+  await type('lisb');
+  check('search failure message', /unavailable/.test(txt('fmsg')) && d.querySelectorAll('#results li').length === 0, txt('fmsg'));
+  w.__geoFail = false;
+  key('Escape');
+  check('Escape closes finder, + keeps working', finder.hidden && q.value === '' && chipNames().length === 6);
+
+  // ---- remove the added place while it is selected
+  d.querySelector('.chip[data-id^="Lisbon"]').dispatchEvent(new w.Event('click', { bubbles: true }));
+  await sleep(1200);
+  d.querySelector('.x').dispatchEvent(new w.Event('click', { bubbles: true }));
+  await sleep(1200);
+  check('remove drops the chip and falls back to Central London', chipNames().length === 5 && txt('placeName') === 'Central London', chipNames().join(','));
+  check('removal saved', JSON.parse(w.localStorage.getItem('wx-custom')).length === 0);
+
+  // ---- the URL hash is untrusted input
+  const ph = w.__wx.placeFromHash;
+  const ok = ph('Paris%2C%20FR,48.85,2.35');
+  check('good hash parses', ok && ok.name === 'Paris, FR' && ok.lat === 48.85 && ok.lon === 2.35 && ok.custom);
+  check('bad hashes rejected', ['x,999,0', 'x,0,181', 'a,b,c', 'x,1', 'x,1,2,3', ',1,2', '%E0%A4%A,1,1', 'x,1e9,0', 'london', ''].every(h => ph(h) === null));
+  const sneaky = ph('%3Cimg%20src%3Dx%20onerror%3Dalert(1)%3E,1,1');
+  check('markup stripped from hash names', sneaky && !/[<>]/.test(sneaky.name), sneaky && sneaky.name);
 
   console.log(`\n=== smoke test (${reduceMotion ? 'reduced motion' : 'full motion'}) ===`);
   let fail = 0;

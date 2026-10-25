@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Weather — Nathan Kurien</title>
-<meta name="description" content="A colour-driven London weather forecast: hour by hour, and the week as a ribbon of skies.">
+<meta name="description" content="A colour-driven weather forecast, London first: hour by hour, and the week as a ribbon of skies.">
 <meta name="theme-color" content="#0b1026" id="themeColor">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%236aa6e3'/%3E%3Cstop offset='1' stop-color='%23f3b96b'/%3E%3C/linearGradient%3E%3C/defs%3E%3Ccircle cx='16' cy='16' r='14' fill='url(%23g)'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -52,16 +52,49 @@ footer{margin-top:56px;padding-top:18px;border-top:1px solid var(--line);font-si
 footer a{color:inherit;text-underline-offset:3px}
 
 /* place chips */
-.places{display:flex;gap:8px;overflow-x:auto;margin:0 -20px;padding:4px 20px 8px;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity}
+.placebar{display:flex;align-items:flex-start;margin:0 -20px}
+.places{display:flex;gap:8px;flex:0 1 auto;min-width:0;overflow-x:auto;padding:4px 8px 8px 20px;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity}
 .places::-webkit-scrollbar{display:none}
+.places.more{-webkit-mask-image:linear-gradient(to right,#000 calc(100% - 40px),transparent);mask-image:linear-gradient(to right,#000 calc(100% - 40px),transparent)}
+.cw{position:relative;flex:none;display:flex;scroll-snap-align:center}
 .chip{
-  flex:none;scroll-snap-align:center;cursor:pointer;background:transparent;
+  flex:none;cursor:pointer;background:transparent;
   border:1px solid rgba(var(--ink),.3);border-radius:999px;padding:.42rem .95rem;font-size:.82rem;
   letter-spacing:.01em;transition:background .3s,color .3s,border-color .3s;
 }
 .chip:hover{border-color:rgba(var(--ink),.7)}
 .chip[aria-pressed="true"]{background:rgb(var(--ink));color:var(--sky-bot);border-color:transparent}
-.chip:focus-visible,.wday:focus-visible,.ghost:focus-visible,.err button:focus-visible{outline:2px solid rgb(var(--ink));outline-offset:3px}
+.chip.add{margin:4px 20px 0 0;padding:.42rem .8rem;font-size:.9rem;line-height:1.2}
+.chip.add[aria-expanded="true"]{background:rgba(var(--ink),.14);border-color:rgba(var(--ink),.7)}
+.cust .chip{padding-right:2rem}
+.x{
+  position:absolute;right:.3rem;top:50%;transform:translateY(-50%);width:1.5rem;height:1.5rem;
+  display:flex;align-items:center;justify-content:center;border:0;border-radius:50%;background:none;
+  cursor:pointer;font-size:1rem;line-height:1;opacity:.6;transition:opacity .2s;
+}
+.x:hover{opacity:1}
+.cw.on .x{color:var(--sky-bot)}
+.chip:focus-visible,.wday:focus-visible,.ghost:focus-visible,.err button:focus-visible,.x:focus-visible{outline:2px solid rgb(var(--ink));outline-offset:3px}
+
+/* place search */
+.finder{margin:6px 0 2px}
+.finder[hidden]{display:none}
+.q{
+  display:block;width:100%;background:transparent;border:0;border-bottom:1px solid rgba(var(--ink),.45);border-radius:0;
+  padding:.55rem 0;font:inherit;font-size:1rem;color:inherit;outline:none;-webkit-appearance:none;appearance:none;
+}
+.q::placeholder{color:var(--soft)}
+.q:focus{border-bottom-color:rgb(var(--ink))}
+.q::-webkit-search-cancel-button{-webkit-appearance:none}
+.results{list-style:none}
+.results li{
+  display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:.65rem 2px;
+  border-bottom:1px solid var(--line);cursor:pointer;
+}
+.results li span{font-family:var(--serif);font-size:1.1rem}
+.results li small{font-size:.78rem;color:var(--soft);text-align:right}
+.results li.act,.results li:hover{background:rgba(var(--ink),.1)}
+.fmsg{margin-top:6px;min-height:1.3em;font-size:.8rem;color:var(--soft)}
 
 .err{margin:14px 0;padding:12px 14px;border:1px solid var(--line);border-radius:10px;font-size:.9rem;display:flex;gap:12px;align-items:center;justify-content:space-between}
 .err[hidden]{display:none}
@@ -158,7 +191,14 @@ h2{font-family:var(--serif);font-weight:400;font-size:1.3rem;letter-spacing:-.01
   </header>
 
   <main>
-    <div class="places" id="places" role="group" aria-label="Choose a location"></div>
+    <div class="placebar" id="placebar">
+      <div class="places" id="places" role="group" aria-label="Choose a location"></div>
+    </div>
+    <div class="finder" id="finder" hidden>
+      <input class="q" id="q" type="search" placeholder="Search for a city" aria-label="Search for a city" autocomplete="off" autocapitalize="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="results">
+      <ul class="results" id="results" role="listbox" aria-label="Matching places"></ul>
+      <p class="fmsg" id="fmsg" role="status"></p>
+    </div>
     <div class="err" id="err" hidden role="alert"><span>Couldn&rsquo;t reach the forecast.</span><button type="button" id="retry">Try again</button></div>
 
     <section class="hero loading" id="hero" aria-label="Selected conditions">
@@ -193,7 +233,7 @@ h2{font-family:var(--serif);font-weight:400;font-size:1.3rem;letter-spacing:-.01
 
   <footer>
     <span id="updated">&nbsp;</span>
-    <span>Forecast data by <a href="https://open-meteo.com/" rel="noopener">Open-Meteo.com</a> (Met Office UKV, ECMWF and others)</span>
+    <span>Forecast and place search by <a href="https://open-meteo.com/" rel="noopener">Open-Meteo.com</a> (Met Office UKV, ECMWF and others; places from GeoNames)</span>
   </footer>
 </div>
 
@@ -363,7 +403,7 @@ function load(place,force){
   var c=cache[place.id];
   if(c&&!force&&Date.now()-c.at<CACHE_MS) return Promise.resolve(c.data);
   var url=API+'?latitude='+place.lat+'&longitude='+place.lon+'&hourly='+HOURLY+'&daily='+DAILY+
-    '&current=temperature_2m&timezone=Europe%2FLondon&forecast_days=7&wind_speed_unit=mph';
+    '&current=temperature_2m&timezone=auto&forecast_days=7&wind_speed_unit=mph';
   var ctl=window.AbortController?new AbortController():null, to=setTimeout(function(){if(ctl)ctl.abort();},15000);
   return fetch(url,ctl?{signal:ctl.signal}:undefined).then(function(r){
     if(!r.ok) throw new Error('HTTP '+r.status);
@@ -409,19 +449,101 @@ function setText(node,txt){
   node._t=setTimeout(function(){node.textContent=txt;node.classList.remove('out');},140);
 }
 
+/* Added places. A place is {id,name,lat,lon}; added ones also carry custom:true
+   and a label. The id doubles as the URL hash ("#Lisbon%2C%20PT,38.72,-9.14"),
+   so the hash is untrusted input: it is validated here and only ever written
+   with textContent. Coordinates are rounded to 2 dp (about 1 km). */
+var CUSTOM_MAX=12;
+function num(v){
+  if(typeof v==='number') return isFinite(v)?v:NaN;
+  return /^-?\d+(\.\d+)?$/.test(String(v))?+v:NaN;
+}
+function customPlace(name,lat,lon,label){
+  name=String(name||'').replace(/[\u0000-\u001f<>]/g,'').trim().slice(0,60);
+  lat=Math.round(num(lat)*100)/100;lon=Math.round(num(lon)*100)/100;
+  if(!name||!isFinite(lat)||!isFinite(lon)||lat<-90||lat>90||lon<-180||lon>180) return null;
+  return {id:encodeURIComponent(name)+','+lat+','+lon,name:name,lat:lat,lon:lon,label:label||name,custom:true};
+}
+function placeFromHash(h){
+  var p=h.split(','), name;
+  if(p.length!==3) return null;
+  try{name=decodeURIComponent(p[0]);}catch(_){return null;}
+  return customPlace(name,p[1],p[2]);
+}
+function nearPlace(p){
+  return PLACES.filter(function(q){return Math.abs(q.lat-p.lat)<0.01&&Math.abs(q.lon-p.lon)<0.01;})[0];
+}
+function saveCustom(){
+  try{
+    localStorage.setItem('wx-custom',JSON.stringify(PLACES.filter(function(p){return p.custom;}).map(function(p){
+      return {name:p.name,lat:p.lat,lon:p.lon,label:p.label};
+    })));
+  }catch(_){}
+}
+function loadCustom(){
+  try{
+    var list=JSON.parse(localStorage.getItem('wx-custom')||'[]');
+    if(!Array.isArray(list)) return;
+    list.slice(0,CUSTOM_MAX).forEach(function(r){
+      var p=r&&customPlace(r.name,r.lat,r.lon,typeof r.label==='string'?r.label.slice(0,120):'');
+      if(p&&!nearPlace(p)) PLACES.push(p);
+    });
+  }catch(_){}
+}
+function addCustom(p){
+  var near=nearPlace(p);
+  if(near) return near;
+  var mine=PLACES.filter(function(q){return q.custom;});
+  if(mine.length>=CUSTOM_MAX) PLACES.splice(PLACES.indexOf(mine[0]),1);
+  PLACES.push(p);saveCustom();renderChips();
+  return p;
+}
+function removePlace(id){
+  var i=-1;
+  PLACES.forEach(function(p,k){if(p.id===id&&p.custom)i=k;});
+  if(i<0) return;
+  PLACES.splice(i,1);delete cache[id];saveCustom();renderChips();
+  if(S.place.id===id) selectPlace(PLACES[0].id);
+}
+
 /* location chips */
-PLACES.forEach(function(p){
-  var b=document.createElement('button');
-  b.type='button';b.className='chip';b.textContent=p.name;b.dataset.id=p.id;b.setAttribute('aria-pressed','false');
-  b.addEventListener('click',function(){selectPlace(p.id);});
-  el.places.appendChild(b);
-});
-function markChip(id){
-  var chips=el.places.children;
+el.add=document.createElement('button');
+el.add.type='button';el.add.className='chip add';el.add.textContent='+';
+el.add.setAttribute('aria-label','Add a place');el.add.setAttribute('aria-expanded','false');el.add.setAttribute('aria-controls','finder');
+$('placebar').appendChild(el.add);
+/* the + stays pinned outside the scrolling row; chips fade out under it while there is more to scroll to */
+function updateFade(){
+  var p=el.places;
+  p.classList.toggle('more',p.scrollWidth-p.scrollLeft-p.clientWidth>2);
+}
+el.places.addEventListener('scroll',updateFade,{passive:true});
+function renderChips(){
+  el.places.innerHTML='';
+  PLACES.forEach(function(p){
+    var w=document.createElement('span'), b=document.createElement('button');
+    w.className='cw'+(p.custom?' cust':'');
+    b.type='button';b.className='chip';b.textContent=p.name;b.dataset.id=p.id;b.setAttribute('aria-pressed','false');
+    if(p.custom) b.title=p.label;
+    b.addEventListener('click',function(){selectPlace(p.id);});
+    w.appendChild(b);
+    if(p.custom){
+      var x=document.createElement('button');
+      x.type='button';x.className='x';x.textContent='×';x.setAttribute('aria-label','Remove '+p.name);
+      x.addEventListener('click',function(){removePlace(p.id);});
+      w.appendChild(x);
+    }
+    el.places.appendChild(w);
+  });
+  markChip(S.place.id,true);
+  updateFade();
+}
+function markChip(id,still){
+  var chips=el.places.querySelectorAll('.chip[data-id]');
   for(var i=0;i<chips.length;i++){
     var on=chips[i].dataset.id===id;
     chips[i].setAttribute('aria-pressed',on?'true':'false');
-    if(on&&chips[i].scrollIntoView) chips[i].scrollIntoView({inline:'center',block:'nearest',behavior:reduce?'auto':'smooth'});
+    chips[i].parentNode.classList.toggle('on',on);
+    if(on&&!still&&chips[i].scrollIntoView) chips[i].scrollIntoView({inline:'center',block:'nearest',behavior:reduce?'auto':'smooth'});
   }
 }
 
@@ -861,7 +983,7 @@ function selectPlace(id,opts){
     buildWeek();buildCurve();
     setPos(idx,false);
     el.hero.classList.remove('loading');el.err.hidden=true;
-    el.updated.textContent='Updated '+new Date().toLocaleTimeString('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit'});
+    el.updated.textContent='Updated '+new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
   }).catch(function(e){
     if(my!==reqId) return;
     if(opts.silent) return;
@@ -872,7 +994,101 @@ function selectPlace(id,opts){
 $('retry').addEventListener('click',function(){selectPlace(S.place.id,{force:true});});
 
 /* =====================================================================
-   13. LIFECYCLE
+   13. PLACE SEARCH
+   Open-Meteo geocoding (no key, CORS open). Typing waits 250 ms, a newer
+   search cancels an older one, and picking a result adds a chip.
+===================================================================== */
+var GEO='https://geocoding-api.open-meteo.com/v1/search';
+var fd={box:$('finder'),q:$('q'),list:$('results'),msg:$('fmsg'),t:0,ctl:null,seq:0,hits:[],act:-1,stale:false};
+
+function openFinder(){
+  fd.box.hidden=false;el.add.setAttribute('aria-expanded','true');fd.q.focus();
+}
+function closeFinder(){
+  clearTimeout(fd.t);fd.seq++;if(fd.ctl)fd.ctl.abort();
+  fd.box.hidden=true;el.add.setAttribute('aria-expanded','false');fd.q.value='';showHits([],'');
+}
+function markAct(){
+  var rows=fd.list.children;
+  for(var i=0;i<rows.length;i++){
+    rows[i].classList.toggle('act',i===fd.act);
+    rows[i].setAttribute('aria-selected',i===fd.act?'true':'false');
+  }
+  if(fd.act>=0) fd.q.setAttribute('aria-activedescendant','r'+fd.act); else fd.q.removeAttribute('aria-activedescendant');
+}
+function showHits(hits,msg){
+  fd.hits=hits;fd.act=hits.length?0:-1;fd.stale=false;
+  fd.list.innerHTML='';
+  hits.forEach(function(h,i){
+    var li=document.createElement('li'), a=document.createElement('span'), b=document.createElement('small');
+    li.id='r'+i;li.setAttribute('role','option');
+    a.textContent=h.name;b.textContent=h.sub;
+    li.appendChild(a);li.appendChild(b);
+    li.addEventListener('click',function(){pickHit(i);});
+    fd.list.appendChild(li);
+  });
+  markAct();
+  fd.msg.textContent=msg||'';
+  fd.q.setAttribute('aria-expanded',hits.length?'true':'false');
+}
+function toHit(r){
+  var region=r.admin1&&r.admin1!==r.name?r.admin1:'';
+  var nm=r.name+(r.country_code&&r.country_code!=='GB'?', '+r.country_code:'');
+  var p=customPlace(nm,r.latitude,r.longitude,[r.name,region,r.country].filter(Boolean).join(', '));
+  return p?{place:p,name:r.name,sub:[region,r.country].filter(Boolean).join(' · ')}:null;
+}
+function search(v){
+  if(fd.ctl) fd.ctl.abort();
+  var my=++fd.seq, ctl=window.AbortController?new AbortController():null;
+  fd.ctl=ctl;
+  var to=setTimeout(function(){if(ctl)ctl.abort();},10000);
+  fd.msg.textContent='Searching…';
+  fetch(GEO+'?name='+encodeURIComponent(v)+'&count=6&language=en&format=json',ctl?{signal:ctl.signal}:undefined).then(function(r){
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    return r.json();
+  }).then(function(j){
+    clearTimeout(to);
+    if(my!==fd.seq) return;
+    var hits=(j.results||[]).map(toHit).filter(Boolean);
+    showHits(hits,hits.length?'':'No places found.');
+  },function(e){
+    clearTimeout(to);
+    if(my!==fd.seq) return;
+    showHits([],'Search unavailable right now.');
+    if(window.console)console.warn('Place search failed',e);
+  });
+}
+function pickHit(i){
+  var h=fd.hits[i]; if(!h) return;
+  var p=addCustom(h.place);
+  closeFinder();
+  selectPlace(p.id);
+}
+el.add.addEventListener('click',function(){if(fd.box.hidden)openFinder();else closeFinder();});
+fd.q.addEventListener('input',function(){
+  clearTimeout(fd.t);fd.stale=true;
+  var v=fd.q.value.trim();
+  if(v.length<2){fd.seq++;if(fd.ctl)fd.ctl.abort();showHits([],'');return;}
+  fd.t=setTimeout(function(){search(v);},250);
+});
+fd.q.addEventListener('keydown',function(e){
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+    if(!fd.hits.length) return;
+    e.preventDefault();
+    fd.act=(fd.act+(e.key==='ArrowDown'?1:-1)+fd.hits.length)%fd.hits.length;markAct();
+  }else if(e.key==='Enter'){
+    e.preventDefault();
+    if(!fd.stale&&fd.act>=0) pickHit(fd.act);
+  }else if(e.key==='Escape'){
+    closeFinder();el.add.focus();
+  }
+});
+document.addEventListener('pointerdown',function(e){
+  if(!fd.box.hidden&&!fd.box.contains(e.target)&&e.target!==el.add) closeFinder();
+});
+
+/* =====================================================================
+   14. LIFECYCLE
 ===================================================================== */
 var rzT=0,lastW=0;
 window.addEventListener('resize',function(){
@@ -881,7 +1097,7 @@ window.addEventListener('resize',function(){
     var w=window.innerWidth;
     if(cv.width!==Math.round(window.innerWidth*DPR)||cv.height!==Math.round(window.innerHeight*DPR))sizeCanvas();
     if(w!==lastW){lastW=w;buildCurve();}
-    kick();
+    updateFade();kick();
   },120);
 });
 document.addEventListener('visibilitychange',function(){
@@ -892,13 +1108,17 @@ document.addEventListener('visibilitychange',function(){
 setInterval(function(){if(!document.hidden)selectPlace(S.place.id,{force:true,silent:true});},REFRESH_MS);
 
 sizeCanvas();lastW=window.innerWidth;
+loadCustom();
 var startId=(location.hash||'').replace('#','');
-try{if(!PLACES.some(function(p){return p.id===startId;}))startId=localStorage.getItem('wx-place')||'london';}catch(_){startId='london';}
+var shared=PLACES.some(function(p){return p.id===startId;})?null:placeFromHash(startId);
+if(shared) startId=addCustom(shared).id;
+else{try{if(!PLACES.some(function(p){return p.id===startId;}))startId=localStorage.getItem('wx-place')||'london';}catch(_){startId='london';}}
+renderChips();
 selectPlace(startId);
 kick();
 
 /* tiny hook for tests / debugging */
-window.__wx={S:S,T:T,D:D,processData:processData,skyFor:skyFor,basePalette:basePalette,summarise:summarise};
+window.__wx={S:S,T:T,D:D,processData:processData,skyFor:skyFor,basePalette:basePalette,summarise:summarise,placeFromHash:placeFromHash};
 })();
 </script>
 </body>
