@@ -47,12 +47,15 @@ Do this in the `personal-website` repo, and run `hugo server` locally before pus
 
 Adjust `weight` to place it in the nav.
 
-**2. Optional live pill** ("London · 11° Light rain →"), in the style of the Spotify now-playing widget:
+**2. A small live header icon** (recommended): a sky-coloured dot plus the temperature, "● 11°", with "London · 11° Light rain" as the tooltip and screen-reader label.
 
-- Copy `integration/weather-pill.html` to `layouts/partials/weather-pill.html` in the Hugo repo.
-- Include it where you want it, for example on the home page layout: `{{ partial "weather-pill.html" . }}`
-- It uses PaperMod's `--border`, `--secondary` and `--primary` CSS variables; check these names against your PaperMod version.
-- It calls Open-Meteo straight from the visitor's browser (no Cloudflare function needed) and fails silently, so it never breaks the page.
+- Copy `integration/weather-icon.html` to `layouts/partials/weather-icon.html` in the Hugo repo.
+- PaperMod's header lives in the theme, which should not be edited. Copy the theme's `layouts/partials/header.html` to the same path in the root `layouts/` and include `{{ partial "weather-icon.html" . }}` next to the theme toggle there.
+- The link works without JavaScript (the dot alone). The script adds the temperature with one Open-Meteo request straight from the visitor's browser, cached in `sessionStorage` for 10 minutes, and fails silently.
+- To show another place, change `data-name`, `data-lat`, `data-lon` and the `#hash` in the link.
+- It uses PaperMod's `--secondary` and `--primary` CSS variables; check these names against your PaperMod version.
+
+**3. Alternative: a wider pill** ("London · 11° Light rain →"), in the style of the Spotify now-playing widget. Use `integration/weather-pill.html` the same way, for example on the home page layout: `{{ partial "weather-pill.html" . }}`. It also uses `--border`.
 
 ## Changing the default places
 
