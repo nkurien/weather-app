@@ -1,0 +1,30 @@
+{{/*
+  Hugo partial: live London weather pill that links to the weather site.
+  Copy to layouts/partials/weather-pill.html in the personal-website repo, then
+  include with: {{ partial "weather-pill.html" . }}
+  Check the CSS variable names (--border, --secondary, --primary) against your PaperMod version.
+*/}}
+<a class="weather-pill" id="wx-pill" href="https://weather.nathankurien.com/#london" hidden></a>
+<style>
+  .weather-pill{display:inline-block;font-size:.85rem;padding:.25rem .75rem;border:1px solid var(--border);border-radius:999px;color:var(--secondary);text-decoration:none;transition:color .2s,border-color .2s}
+  .weather-pill[hidden]{display:none}
+  .weather-pill:hover{color:var(--primary);border-color:var(--secondary)}
+</style>
+<script>
+(function () {
+  var WORDS = {0:'Clear',1:'Mostly clear',2:'Partly cloudy',3:'Overcast',45:'Fog',48:'Fog',
+    51:'Drizzle',53:'Drizzle',55:'Drizzle',56:'Drizzle',57:'Drizzle',61:'Light rain',63:'Rain',65:'Heavy rain',
+    66:'Rain',67:'Rain',71:'Light snow',73:'Snow',75:'Heavy snow',77:'Snow',80:'Showers',81:'Showers',
+    82:'Heavy showers',85:'Snow showers',86:'Snow showers',95:'Thunderstorm',96:'Thunderstorm',99:'Thunderstorm'};
+  var url = 'https://api.open-meteo.com/v1/forecast?latitude=51.5074&longitude=-0.1278' +
+    '&current=temperature_2m,weather_code&timezone=Europe%2FLondon';
+  fetch(url)
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+      var c = j.current, pill = document.getElementById('wx-pill');
+      pill.textContent = 'London · ' + Math.round(c.temperature_2m) + '° ' + (WORDS[c.weather_code] || '') + ' →';
+      pill.hidden = false;
+    })
+    .catch(function () { /* fail silently: the pill simply stays hidden */ });
+})();
+</script>
