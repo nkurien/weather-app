@@ -59,7 +59,7 @@ Adjust `weight` to place it in the nav.
 
 ## Changing the default places
 
-The five default chips are the `PLACES` array at the top of the script in `index.html` (id, name, latitude, longitude). The id is also the URL hash, so `/#greenwich` opens straight to Greenwich. Added places are appended to this list at runtime and are never written back to the file.
+The twelve default chips (London first, then major cities around the world) are the `PLACES` array at the top of the script in `index.html` (id, name, latitude, longitude). The id is also the URL hash, so `/#tokyo` opens straight to Tokyo. Added places are appended to this list at runtime and are never written back to the file.
 
 ## Credits
 

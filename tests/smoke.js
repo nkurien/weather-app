@@ -54,8 +54,8 @@ const GEO_RESULTS = {
     { name: 'Lisbon', latitude: 38.71667, longitude: -9.13333, country_code: 'PT', country: 'Portugal', admin1: 'Lisbon' },
     { name: 'Lisburn', latitude: 54.5162, longitude: -6.058, country_code: 'GB', country: 'United Kingdom', admin1: 'Northern Ireland' },
   ],
-  greenwich: [
-    { name: 'Greenwich', latitude: 51.48, longitude: 0.0, country_code: 'GB', country: 'United Kingdom', admin1: 'England' },
+  paris: [
+    { name: 'Paris', latitude: 48.86, longitude: 2.35, country_code: 'FR', country: 'France', admin1: 'Île-de-France' },
   ],
 };
 
@@ -75,7 +75,7 @@ const noopCtx = new Proxy({}, {
 });
 
 const dom = new JSDOM(HTML, {
-  runScripts: 'dangerously', pretendToBeVisual: true, url: 'https://weather.test/#greenwich', virtualConsole: vc,
+  runScripts: 'dangerously', pretendToBeVisual: true, url: 'https://weather.test/#paris', virtualConsole: vc,
   beforeParse(w) {
     w.HTMLCanvasElement.prototype.getContext = () => noopCtx;
     w.matchMedia = q => ({ matches: reduceMotion && /reduce/.test(q), addEventListener() {}, addListener() {} });
@@ -111,12 +111,12 @@ function ptr(node, type, x, pointerType) {
   await sleep(1800);
 
   const S = w.__wx.S;
-  check('fetch URL has Greenwich lat', /latitude=51\.4826/.test(w.__lastUrl), w.__lastUrl.slice(0, 90));
+  check('fetch URL has Paris lat', /latitude=48\.8566/.test(w.__lastUrl), w.__lastUrl.slice(0, 90));
   check('hours loaded (25+6*24=169)', S.hours.length === 169, S.hours.length);
   check('7 days grouped by date', S.days.length === 7, S.days.map(x => x.n).join(','));
   check('first day has 25 hours', S.days[0].n === 25);
   check('nowIdx points at 21:00', S.hours[S.nowIdx].t.slice(11, 13) === '21' && S.hours[S.nowIdx].day === 0, S.hours[S.nowIdx].t);
-  check('hero place name', txt('placeName') === 'Greenwich', txt('placeName'));
+  check('hero place name', txt('placeName') === 'Paris', txt('placeName'));
   check('hero when label', /^Now · 21:00$/.test(txt('whenLabel')), txt('whenLabel'));
   check('hero condition', txt('cond') === 'Overcast', txt('cond'));
   check('hero number rolled to temp', /^\d+$|^−\d+$/.test(txt('tempNum')), txt('tempNum'));
@@ -213,13 +213,14 @@ function ptr(node, type, x, pointerType) {
   // ---- place switch keeps the selected time
   d.querySelectorAll('.chip')[0].dispatchEvent(new w.Event('click', { bubbles: true }));
   await sleep(1500);
-  check('place switch updates label and URL', txt('placeName') === 'Central London' && /latitude=51\.5074/.test(w.__lastUrl), txt('placeName'));
+  check('place switch updates label and URL', txt('placeName') === 'London' && /latitude=51\.5074/.test(w.__lastUrl), txt('placeName'));
   check('hash updated', w.location.hash === '#london', w.location.hash);
   check('selected time kept across place switch', S.hours[S.pos].t === S.selTime);
 
   // ---- add a place by search
   const finder = d.getElementById('finder'), q = d.getElementById('q'), addBtn = d.querySelector('.chip.add');
   const chipNames = () => [...d.querySelectorAll('.chip[data-id]')].map(c => c.textContent);
+  const N0 = chipNames().length;
   const type = async v => { q.value = v; q.dispatchEvent(new w.Event('input', { bubbles: true })); await sleep(450); };
   const key = k => q.dispatchEvent(Object.assign(new w.Event('keydown', { bubbles: true, cancelable: true }), { key: k }));
   check('search closed by default, + pinned outside the scrolling row', finder.hidden && d.getElementById('placebar').lastElementChild === addBtn && !d.getElementById('places').contains(addBtn));
@@ -229,7 +230,7 @@ function ptr(node, type, x, pointerType) {
   check('one character does not search', w.__geoCalls.length === 0);
   q.value = 'Lis'; q.dispatchEvent(new w.Event('input', { bubbles: true }));
   key('Enter');
-  check('Enter before results arrive does nothing', chipNames().length === 5 && w.__geoCalls.length === 0);
+  check('Enter before results arrive does nothing', chipNames().length === N0 && w.__geoCalls.length === 0);
   await sleep(450);
   const rows = [...d.querySelectorAll('#results li')];
   check('search sent once, debounced', w.__geoCalls.length === 1 && /name=Lis&count=6/.test(w.__geoCalls[0]), w.__geoCalls[0]);
@@ -249,10 +250,10 @@ function ptr(node, type, x, pointerType) {
 
   // ---- a place already on the list is selected, not duplicated
   addBtn.dispatchEvent(new w.Event('click', { bubbles: true }));
-  await type('Greenwich');
+  await type('Paris');
   d.querySelector('#results li').dispatchEvent(new w.Event('click', { bubbles: true }));
   await sleep(1200);
-  check('duplicate selects the existing chip', chipNames().length === 6 && txt('placeName') === 'Greenwich', chipNames().join(','));
+  check('duplicate selects the existing chip', chipNames().length === N0 + 1 && txt('placeName') === 'Paris', chipNames().join(','));
 
   // ---- failure and empty states
   addBtn.dispatchEvent(new w.Event('click', { bubbles: true }));
@@ -263,14 +264,14 @@ function ptr(node, type, x, pointerType) {
   check('search failure message', /unavailable/.test(txt('fmsg')) && d.querySelectorAll('#results li').length === 0, txt('fmsg'));
   w.__geoFail = false;
   key('Escape');
-  check('Escape closes finder, + keeps working', finder.hidden && q.value === '' && chipNames().length === 6);
+  check('Escape closes finder, + keeps working', finder.hidden && q.value === '' && chipNames().length === N0 + 1);
 
   // ---- remove the added place while it is selected
   d.querySelector('.chip[data-id^="Lisbon"]').dispatchEvent(new w.Event('click', { bubbles: true }));
   await sleep(1200);
   d.querySelector('.x').dispatchEvent(new w.Event('click', { bubbles: true }));
   await sleep(1200);
-  check('remove drops the chip and falls back to Central London', chipNames().length === 5 && txt('placeName') === 'Central London', chipNames().join(','));
+  check('remove drops the chip and falls back to London', chipNames().length === N0 && txt('placeName') === 'London', chipNames().join(','));
   check('removal saved', JSON.parse(w.localStorage.getItem('wx-custom')).length === 0);
 
   // ---- the URL hash is untrusted input

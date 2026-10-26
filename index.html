@@ -257,12 +257,19 @@ h2{font-family:var(--serif);font-weight:400;font-size:1.3rem;letter-spacing:-.01
 /* =====================================================================
    1. CONFIG
 ===================================================================== */
-var PLACES=[
-  {id:'london',       name:'Central London', lat:51.5074, lon:-0.1278},
-  {id:'greenwich',    name:'Greenwich',      lat:51.4826, lon:0.0077},
-  {id:'richmond',     name:'Richmond',       lat:51.4613, lon:-0.3037},
-  {id:'hampstead',    name:'Hampstead',      lat:51.5560, lon:-0.1780},
-  {id:'canary-wharf', name:'Canary Wharf',   lat:51.5054, lon:-0.0235}
+var PLACES=[ /* London first (the default), then eastwards round the world */
+  {id:'london',      name:'London',      lat:51.5074,  lon:-0.1278},
+  {id:'paris',       name:'Paris',       lat:48.8566,  lon:2.3522},
+  {id:'cape-town',   name:'Cape Town',   lat:-33.9249, lon:18.4241},
+  {id:'cairo',       name:'Cairo',       lat:30.0444,  lon:31.2357},
+  {id:'dubai',       name:'Dubai',       lat:25.2048,  lon:55.2708},
+  {id:'mumbai',      name:'Mumbai',      lat:19.0760,  lon:72.8777},
+  {id:'singapore',   name:'Singapore',   lat:1.3521,   lon:103.8198},
+  {id:'tokyo',       name:'Tokyo',       lat:35.6762,  lon:139.6503},
+  {id:'sydney',      name:'Sydney',      lat:-33.8688, lon:151.2093},
+  {id:'mexico-city', name:'Mexico City', lat:19.4326,  lon:-99.1332},
+  {id:'new-york',    name:'New York',    lat:40.7128,  lon:-74.0060},
+  {id:'sao-paulo',   name:'São Paulo',   lat:-23.5505, lon:-46.6333}
 ];
 var API='https://api.open-meteo.com/v1/forecast';
 var HOURLY='temperature_2m,apparent_temperature,relative_humidity_2m,precipitation_probability,precipitation,weather_code,cloud_cover,visibility,wind_speed_10m,wind_direction_10m,wind_gusts_10m';
