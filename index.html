@@ -137,11 +137,14 @@ footer a{color:inherit;text-underline-offset:3px}
 }
 
 /* section heads */
-.sec-head{display:flex;justify-content:space-between;align-items:baseline;margin:46px 0 12px;min-height:2rem}
+.sec-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:46px 0 12px;min-height:2rem}
 h2{font-family:var(--serif);font-weight:400;font-size:1.3rem;letter-spacing:-.01em}
-.dtime{margin-left:.5em;color:var(--soft);font-variant-numeric:lining-nums tabular-nums}
-.dtime::before{content:"· "}
-.ghost{background:none;border:1px solid rgba(var(--ink),.45);border-radius:999px;padding:.25rem .8rem;font-size:.8rem;cursor:pointer;transition:background .2s}
+.dtime{margin-left:.6em;color:var(--soft);white-space:nowrap;font-variant-numeric:lining-nums tabular-nums}
+#dayNameL,#dayNameS{white-space:nowrap}
+#dayNameS{display:none}
+@media (max-width:520px){#dayNameL{display:none}#dayNameS{display:inline}}
+@media (max-width:400px){#dayTitle{font-size:1.15rem}}
+.ghost{white-space:nowrap;flex-shrink:0;background:none;border:1px solid rgba(var(--ink),.45);border-radius:999px;padding:.25rem .8rem;font-size:.8rem;cursor:pointer;transition:background .2s}
 .ghost:hover{background:rgba(var(--ink),.12)}
 .ghost[hidden]{display:none}
 .legend{margin-top:10px;font-size:.78rem;color:var(--soft);max-width:60ch}
@@ -230,7 +233,7 @@ h2{font-family:var(--serif);font-weight:400;font-size:1.3rem;letter-spacing:-.01
 
     <section class="day" aria-labelledby="dayTitle">
       <div class="sec-head">
-        <h2 id="dayTitle"><span id="dayName" class="fade">Today</span><span id="dayTime" class="dtime"></span></h2>
+        <h2 id="dayTitle"><span id="dayNameL" class="fade">Today</span><span id="dayNameS" class="fade"></span><span id="dayTime" class="dtime"></span></h2>
         <button class="ghost" id="nowBtn" type="button" hidden>&#8634; Now</button>
       </div>
       <div class="curve" id="curve" tabindex="0" role="slider" aria-label="Scrub through the hours" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0"></div>
@@ -524,7 +527,7 @@ var el={
   hero:$('hero'),place:$('placeName'),when:$('whenLabel'),temp:$('tempNum'),cond:$('cond'),summary:$('summary'),
   moon:$('moonLine'),moonTxt:$('moonTxt'),glyph:$('moonGlyph'),
   feelV:$('feelV'),feelS:$('feelS'),windV:$('windV'),windS:$('windS'),arrow:$('windArrow'),
-  rainV:$('rainV'),rainS:$('rainS'),dayV:$('dayV'),dayS:$('dayS'),dayName:$('dayName'),dayTime:$('dayTime'),nowBtn:$('nowBtn'),
+  rainV:$('rainV'),rainS:$('rainS'),dayV:$('dayV'),dayS:$('dayS'),dayNameL:$('dayNameL'),dayNameS:$('dayNameS'),dayTime:$('dayTime'),nowBtn:$('nowBtn'),
   curve:$('curve'),week:$('weekList'),places:$('places'),err:$('err'),updated:$('updated'),theme:$('themeColor')
 };
 var root=document.documentElement;
@@ -742,7 +745,8 @@ function applyPos(){
   var night=h.alt<0.1;   // dusk to dawn: the moon line is a night-view thing
   el.moon.classList.toggle('on',night);el.moon.setAttribute('aria-hidden',night?'false':'true');
   if(night){setText(el.moonTxt,moonLine(h));setGlyph(h.moon);}
-  setText(el.dayName,(h.day===0?'Today · ':'')+DOW[di.dow]+' '+di.d+' '+MON[di.m]);
+  setText(el.dayNameL,(h.day===0?'Today · ':'')+DOW[di.dow]+' '+di.d+' '+MON[di.m]);
+  setText(el.dayNameS,(h.day===0?'Today · ':'')+DOW[di.dow].slice(0,3)+' '+di.d+' '+MON[di.m].slice(0,3));
   el.dayTime.textContent=hhmm(h.t);
 
   setText(el.feelV,Math.round(h.feels)+'°');
