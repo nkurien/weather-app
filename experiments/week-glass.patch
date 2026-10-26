@@ -1,0 +1,79 @@
+diff --git a/index.html b/index.html
+index c6b8240..bf9869e 100644
+--- a/index.html
++++ b/index.html
+@@ -174,6 +174,27 @@ h2{font-family:var(--serif);font-weight:400;font-size:1.3rem;letter-spacing:-.01
+ .sel .rc{opacity:1}
+ .sel .ribbon{box-shadow:0 0 0 1.5px rgba(var(--ink),.9)}
+ .rn{position:absolute;top:0;width:0;height:0;margin-left:-4px;border-left:4px solid transparent;border-right:4px solid transparent;border-top:6px solid rgba(255,255,255,.92);z-index:2;pointer-events:none}
++/* TEMP week-variant experiment: ?week=b (glass) */
++.rsky,.rcl{position:absolute;inset:0}
++.rsvg,.rtk{display:none}
++.wv-b .ribbon{border-radius:8px;box-shadow:inset 0 0 0 1px rgba(var(--ink),.1),inset 0 1px 0 rgba(255,255,255,.38),inset 0 -1px 0 rgba(0,0,0,.12)}
++.wv-b .sel .ribbon{box-shadow:inset 0 0 0 1px rgba(var(--ink),.5),inset 0 1px 0 rgba(255,255,255,.5),0 0 18px -4px rgba(var(--ink),.35)}
++.wv-b .rsky{opacity:.5;filter:saturate(1.35);transition:opacity .3s}
++.wv-b .sel .rsky{opacity:.82}
++.wv-b .rcl{pointer-events:none}
++.wv-b .ribbon::after{
++  background:
++    linear-gradient(115deg,transparent 0 34%,rgba(255,255,255,.16) 44%,rgba(255,255,255,.04) 52%,transparent 60%),
++    linear-gradient(to bottom,rgba(255,255,255,.26) 0,rgba(255,255,255,.07) 49%,rgba(255,255,255,0) 50%,rgba(0,0,0,.1) 100%);
++}
++.wv-b .rsvg{display:block;position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;filter:drop-shadow(0 0 3px rgba(var(--ink),.45))}
++.wv-b .rsvg path{fill:none;stroke:rgb(var(--ink));stroke-width:1.4;vector-effect:non-scaling-stroke;opacity:.5;transition:opacity .3s}
++.wv-b .sel .rsvg path{opacity:.95}
++.wv-b .rbars i{background:linear-gradient(to top,rgba(226,240,255,.9),rgba(226,240,255,.25))!important;margin:0 1px;border-radius:2px 2px 0 0;box-shadow:0 -1px 0 rgba(255,255,255,.6)}
++.wv-b .rtk{display:block;position:absolute;top:0;width:1px;height:6px;background:rgba(255,255,255,.7);pointer-events:none}
++.wv-b .rtk.ss{background:rgba(255,200,150,.9)}
++.wv-b .rc{width:2px;background:linear-gradient(to bottom,rgba(255,255,255,.95),rgba(255,255,255,.55));box-shadow:0 0 10px 2px rgba(255,255,255,.5)}
++.wv-b .rn{border-top-color:#fff;filter:drop-shadow(0 0 3px rgba(255,255,255,.8))}
+ .wt{text-align:right;font-size:.85rem;line-height:1.25}
+ .wt b{display:block;font-weight:600}
+ .wt span{display:block;color:var(--soft)}
+@@ -757,6 +778,10 @@ function applyPos(){
+ 
+ /* week ribbons */
+ function buildWeek(){
++  var WV=(/[?&]week=(b)/.exec(location.search)||[])[1]||'';
++  var gmin=Infinity,gmax=-Infinity;
++  S.hours.forEach(function(h){gmin=Math.min(gmin,h.temp);gmax=Math.max(gmax,h.temp);});
++  el.week.className=WV?'wv-'+WV:'';
+   el.week.innerHTML='';
+   S.days.forEach(function(d,di){
+     var hs=S.hours.slice(d.start,d.start+d.n);
+@@ -767,14 +792,20 @@ function buildWeek(){
+     var hi=Math.max.apply(null,temps), lo=Math.min.apply(null,temps);
+     var rain=hs.reduce(function(a,h){return a+h.mm;},0);
+     var bars=hs.map(function(h){
+-      var hgt=Math.round(clamp(h.mm/3)*75);
++      var hgt=Math.round(clamp(h.mm/3)*(WV==='b'?62:75));
+       var col=h.alt>0.1?'rgba(18,42,82,.6)':'rgba(190,210,255,.6)';
+       return '<i style="height:'+hgt+'%;background:'+col+'"></i>';
+     }).join('');
++    var veil=hs.map(function(h,j){return 'rgba(255,255,255,'+(h.cloud*0.3).toFixed(3)+') '+((j+0.5)/d.n*100).toFixed(2)+'%';}).join(',');
++    var c0=hs[0].clock;
++    var tick=function(c,cls){var x=(c-c0+0.5)/d.n*100;return x>1&&x<99?'<i class="rtk '+cls+'" style="left:'+x.toFixed(2)+'%"></i>':'';};
++    var line=temps.map(function(t,j){
++      return (j?'L':'M')+((j+0.5)/d.n*100).toFixed(2)+' '+(36-(t-gmin)/((gmax-gmin)||1)*30).toFixed(2);
++    }).join('');
+     var li=document.createElement('li');
+     li.className='wrow';li.dataset.day=di;
+     li.innerHTML='<button class="wday" type="button"><span>'+(di===0?'Today':DOW[d.info.dow].slice(0,3))+'</span><small>'+d.info.d+'</small></button>'+
+-      '<div class="ribbon" style="background:'+grad+'"><div class="rbars">'+bars+'</div><b class="rc"></b>'+
++      '<div class="ribbon"><div class="rsky" style="background:'+grad+'"></div><div class="rcl" style="background:linear-gradient(to right,'+veil+')"></div><svg class="rsvg" viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true"><path d="'+line+'"/></svg><div class="rbars">'+bars+'</div>'+tick(d.sr,'sr')+tick(d.ss,'ss')+'<b class="rc"></b>'+
+       (di===0&&S.nowIdx<d.start+d.n?'<u class="rn" style="left:'+((S.hours[S.nowIdx].k+0.5)/d.n*100).toFixed(2)+'%"></u>':'')+'</div>'+
+       '<div class="wt"><b>'+Math.round(hi)+'°</b><span>'+Math.round(lo)+'°</span>'+(rain>=0.2?'<em>'+rain.toFixed(1)+' mm</em>':'')+'</div>';
+     el.week.appendChild(li);
+diff --git a/tests/smoke.js b/tests/smoke.js
+index a484973..0fd690d 100644
+--- a/tests/smoke.js
++++ b/tests/smoke.js
+@@ -125,7 +125,7 @@ function ptr(node, type, x, pointerType) {
+   check('stat daylight text', /\d\d:\d\d.\d\d:\d\d/.test(txt('dayV')), txt('dayV'));
+   check('week has 7 rows', d.querySelectorAll('.wrow').length === 7);
+   check('today row labelled Today', /^Today/.test(d.querySelector('.wrow .wday').textContent));
+-  check('ribbon gradients built', [...d.querySelectorAll('.ribbon')].every(r => /linear-gradient/.test(r.getAttribute('style'))));
++  check('ribbon gradients built', [...d.querySelectorAll('.ribbon .rsky')].length === 7 && [...d.querySelectorAll('.ribbon .rsky')].every(r => /linear-gradient/.test(r.getAttribute('style'))));
+   check('25 bars on day 0 ribbon, 24 on day 1', d.querySelectorAll('.wrow')[0].querySelectorAll('.rbars i').length === 25 && d.querySelectorAll('.wrow')[1].querySelectorAll('.rbars i').length === 24);
+   check('now marker present', !!d.querySelector('.rn'));
+   check('Now button hidden at now', d.getElementById('nowBtn').hidden === true);

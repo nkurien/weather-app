@@ -125,9 +125,9 @@ function ptr(node, type, x, pointerType) {
   check('stat daylight text', /\d\d:\d\d.\d\d:\d\d/.test(txt('dayV')), txt('dayV'));
   check('week has 7 rows', d.querySelectorAll('.wrow').length === 7);
   check('today row labelled Today', /^Today/.test(d.querySelector('.wrow .wday').textContent));
-  check('ribbon gradients built', [...d.querySelectorAll('.ribbon')].every(r => /linear-gradient/.test(r.getAttribute('style'))));
-  check('25 bars on day 0 ribbon, 24 on day 1', d.querySelectorAll('.wrow')[0].querySelectorAll('.rbars i').length === 25 && d.querySelectorAll('.wrow')[1].querySelectorAll('.rbars i').length === 24);
-  check('now marker present', !!d.querySelector('.rn'));
+  check('25 dots on day 0, 24 on day 1', d.querySelectorAll('.wrow')[0].querySelectorAll('.stipple i').length === 25 && d.querySelectorAll('.wrow')[1].querySelectorAll('.stipple i').length === 24);
+  check('dots carry size, cloud and rain vars', [...d.querySelectorAll('.stipple i')].every(i => /^[\d.]+px$/.test(i.style.getPropertyValue('--s').trim()) && i.style.getPropertyValue('--c').trim() !== '' && /^\d+px$/.test(i.style.getPropertyValue('--r').trim())));
+  check('now marker present', d.querySelectorAll('.stipple i.now').length === 1);
   check('Now button hidden at now', d.getElementById('nowBtn').hidden === true);
   check('CSS sky vars set', /rgb\(/.test(d.documentElement.style.getPropertyValue('--sky-top')) && /^\d+,\d+,\d+$/.test(d.documentElement.style.getPropertyValue('--ink')), d.documentElement.style.getPropertyValue('--ink'));
   check('night ink is light (21:00)', +d.documentElement.style.getPropertyValue('--ink').split(',')[0] > 200, d.documentElement.style.getPropertyValue('--ink'));
@@ -145,8 +145,8 @@ function ptr(node, type, x, pointerType) {
   check('moon glyph path has no NaN', /^M0,-6A6,6 0 0 1 0,6A/.test(d.getElementById('moonGlyph').getAttribute('d')) && !/NaN/.test(d.getElementById('moonGlyph').getAttribute('d')));
   check('sky moon is up, nearly full, lit on the right (waxing, northern hemisphere)', w.__wx.T.moonB > 0.5 && w.__wx.T.moonF > 0.95 && w.__wx.T.moonVx > 0, [w.__wx.T.moonB, w.__wx.T.moonF, w.__wx.T.moonVx].map(v => v.toFixed(2)).join(' '));
 
-  // ---- scrub the week ribbon on day 1 (rainy), mouse
-  const day1 = d.querySelectorAll('.wrow')[1].querySelector('.ribbon');
+  // ---- scrub the week dots on day 1 (rainy), mouse
+  const day1 = d.querySelectorAll('.wrow')[1].querySelector('.stipple');
   const nightInk = d.documentElement.style.getPropertyValue('--ink');
   ptr(day1, 'pointerdown', 300); // halfway through day 1 => hour 12
   ptr(day1, 'pointerup', 300);
@@ -172,7 +172,7 @@ function ptr(node, type, x, pointerType) {
   check('Home returns to now', S.pos === S.nowIdx, S.pos);
 
   // ---- touch: a vertical gesture must not select, a horizontal drag must
-  const day3 = d.querySelectorAll('.wrow')[3].querySelector('.ribbon');
+  const day3 = d.querySelectorAll('.wrow')[3].querySelector('.stipple');
   const keep = S.pos;
   ptr(day3, 'pointerdown', 100, 'touch');
   const mv = new w.Event('pointermove', { bubbles: true }); Object.assign(mv, { clientX: 101, clientY: 60, pointerType: 'touch', pointerId: 1 });
@@ -188,7 +188,7 @@ function ptr(node, type, x, pointerType) {
   // ---- every day: pick every hour, make sure nothing throws or goes NaN
   let bad = null;
   for (let i = 0; i < S.hours.length && !bad; i++) {
-    try { w.__wx.S.pos = i; /* via public path */ const r = d.querySelectorAll('.wrow')[S.hours[i].day].querySelector('.ribbon'); const dd = S.days[S.hours[i].day]; ptr(r, 'pointerdown', ((S.hours[i].k + 0.5) / dd.n) * 600); ptr(r, 'pointerup', 0); }
+    try { w.__wx.S.pos = i; /* via public path */ const r = d.querySelectorAll('.wrow')[S.hours[i].day].querySelector('.stipple'); const dd = S.days[S.hours[i].day]; ptr(r, 'pointerdown', ((S.hours[i].k + 0.5) / dd.n) * 600); ptr(r, 'pointerup', 0); }
     catch (e) { bad = 'threw at ' + i + ': ' + e.message; }
     const h = S.hours[S.pos];
     if (!bad && (h.top.some(Number.isNaN) || h.bot.some(Number.isNaN) || Number.isNaN(h.sunX) || Number.isNaN(h.moonY))) bad = 'NaN at ' + h.t;

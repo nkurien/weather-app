@@ -4,7 +4,7 @@ A colour-driven weather page, London first. One static `index.html`, no build, n
 
 ## What it does
 
-- Hour-by-hour temperature curve with rain bars, and the week as a row of sky-coloured ribbons. Drag across either to scrub through time.
+- Hour-by-hour temperature curve with rain bars, and the week as rows of dots, one per hour (size is temperature, solid is cloudier, a tail is rain, faint is night). Drag across either to scrub through time.
 - The whole page sits on a sky driven by sun position and conditions (cloud, rain, fog, snow, storm), and glides when you scrub or change place. Honours `prefers-reduced-motion`.
 - **Add any city.** The `+` chip opens a search; picking a result adds a chip. Added places are kept in the browser and can be removed with the `x`.
 - **The moon.** At night the sky shows the moon at its real phase, tilt and position, and a line under the summary reads like "Waxing gibbous · 78% lit · sets 03:12".
