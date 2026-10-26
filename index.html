@@ -143,6 +143,12 @@ h2{font-family:var(--serif);font-weight:400;font-size:1.3rem;letter-spacing:-.01
 .ghost:hover{background:rgba(var(--ink),.12)}
 .ghost[hidden]{display:none}
 .legend{margin-top:10px;font-size:.78rem;color:var(--soft);max-width:60ch}
+/* hidden hint: only a small hotspot at the start of the line reveals it (a tap works on touch) */
+.legend{position:relative;opacity:0;transition:opacity .3s;pointer-events:none}
+.legend::before{content:"";position:absolute;left:0;top:0;width:2rem;height:1rem;pointer-events:auto}
+.week .legend::before{width:3.2rem;height:2.6rem}
+.legend:hover,section:focus-within .legend{opacity:1}
+.scrubbing .legend{opacity:0!important}
 
 /* day curve */
 .curve{position:relative;height:226px;touch-action:pan-y;cursor:ew-resize;user-select:none;-webkit-user-select:none;border-radius:8px;outline:none}
@@ -824,6 +830,7 @@ function bindScrub(node,getDay){
     var r=node.getBoundingClientRect(), x=clamp((e.clientX-r.left)/Math.max(1,r.width),0,0.9999);
     var d=S.days[getDay()]; if(!d) return;
     setPos(d.start+Math.floor(x*d.n));
+    document.documentElement.classList.add('scrubbing');
     if(lens) lensDrag(node.parentNode,x*d.n);
   }
   node.addEventListener('pointerdown',function(e){
@@ -843,9 +850,10 @@ function bindScrub(node,getDay){
   node.addEventListener('pointerup',function(e){
     if(active&&!moved&&!cancelled) at(e);
     active=false;
+    document.documentElement.classList.remove('scrubbing');
     if(lens) lensEnd(node.parentNode);
   });
-  node.addEventListener('pointercancel',function(){cancelled=true;active=false;if(lens) lensEnd(node.parentNode);});
+  node.addEventListener('pointercancel',function(){cancelled=true;active=false;document.documentElement.classList.remove('scrubbing');if(lens) lensEnd(node.parentNode);});
 }
 bindScrub(el.curve,function(){return S.curDay<0?0:S.curDay;});
 el.curve.addEventListener('keydown',function(e){
