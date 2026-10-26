@@ -157,7 +157,8 @@ function ptr(node, type, x, pointerType) {
   check('summary talks about rain now', /^Raining now/.test(txt('summary')), txt('summary'));
   check('Now button appears', d.getElementById('nowBtn').hidden === false);
   check('day 1 row selected', d.querySelectorAll('.wrow')[1].classList.contains('sel') && !d.querySelectorAll('.wrow')[0].classList.contains('sel'));
-  check('day title changed', /^Monday 26 October$/.test(txt('dayTitle')), txt('dayTitle'));
+  check('day title changed', /^Monday 26 October$/.test(txt('dayName')), txt('dayName'));
+  check('day title shows the selected time', /^\d\d:\d\d$/.test(txt('dayTime')) && txt('dayTime') === S.hours[S.pos].t.slice(11, 16), txt('dayTime'));
   const dayInk = d.documentElement.style.getPropertyValue('--ink');
   check('ink flipped dark for a rainy midday', +dayInk.split(',')[0] < 120, nightInk + ' -> ' + dayInk);
   check('eased rain value reached target', Math.abs(w.__wx.D.rain - w.__wx.T.rain) < 0.01 && w.__wx.D.rain > 0.2, w.__wx.D.rain.toFixed(3));
