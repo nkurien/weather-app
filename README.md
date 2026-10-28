@@ -18,9 +18,13 @@ npm install && npm test
 
 (Or just open `index.html` in a browser; it needs internet for the forecast.) If port 8080 is taken, run `python3 -m http.server 8081` instead.
 
+## Install as an app (PWA)
+
+`manifest.webmanifest`, `sw.js` and `icons/` make the site installable and usable offline. On Android Chrome use menu, Install app. On iOS Safari use Share, Add to Home Screen (iOS has no install prompt). Offline it opens from cache and shows the last forecast it fetched. The service worker only registers over https or on localhost. To force every visitor onto a new shell, bump `VERSION` in `sw.js`. Icons are rendered from `icons/icon.svg` with `rsvg-convert -w 512 icons/icon.svg -o icons/icon-512.png` (and 192, and 180 for `apple-touch-icon.png`).
+
 ## Tests
 
-`npm test` runs `tests/smoke.js` twice, in normal and reduced-motion mode (80 checks each). It uses jsdom with synthetic forecast and geocoding responses, so it never touches the network. It covers data grouping (including a 25-hour clock-change day), scrubbing, place switching, place search and removal, hostile URL hashes, and the moon maths. It cannot judge layout or looks, so check changes in a real browser too, at 360 px and desktop width.
+`npm test` runs `tests/smoke.js` twice, in normal and reduced-motion mode (85 checks each). It uses jsdom with synthetic forecast and geocoding responses, so it never touches the network. It covers data grouping (including a 25-hour clock-change day), scrubbing, place switching, place search and removal, hostile URL hashes, and the moon maths. It cannot judge layout or looks, so check changes in a real browser too, at 360 px and desktop width.
 
 ## How it works (technical notes)
 

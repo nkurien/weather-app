@@ -295,6 +295,19 @@ function ptr(node, type, x, pointerType) {
   check('waxing moon is lit on the right in London, the left in Sydney', lon.phase < 0.5 && lon.vx > 0.5 && syd.vx < -0.5, lon.vx.toFixed(2) + ' vs ' + syd.vx.toFixed(2));
   check('phase names cover the cycle', [0, 0.1, 0.25, 0.4, 0.5, 0.6, 0.75, 0.9, 0.99].map(phaseName).join(',') === 'New moon,Waxing crescent,First quarter,Waxing gibbous,Full moon,Waning gibbous,Last quarter,Waning crescent,New moon');
 
+  // ---- installable / offline
+  const root = require('path').join(__dirname, '..');
+  const mf = JSON.parse(fs.readFileSync(require('path').join(root, 'manifest.webmanifest'), 'utf8'));
+  check('manifest linked from the page', d.querySelector('link[rel=manifest]').getAttribute('href') === 'manifest.webmanifest');
+  check('manifest is installable', mf.display === 'standalone' && mf.name && mf.start_url && mf.icons.some(i => i.sizes === '192x192') && mf.icons.some(i => i.sizes === '512x512'));
+  check('every icon file exists', mf.icons.concat([{ src: d.querySelector('link[rel=apple-touch-icon]').getAttribute('href') }]).every(i => fs.existsSync(require('path').join(root, i.src))));
+  const swSrc = fs.readFileSync(require('path').join(root, 'sw.js'), 'utf8');
+  const handlers = {}, swSelf = { location: { origin: 'https://weather.test' }, addEventListener: (t, f) => { handlers[t] = f; } };
+  require('vm').runInNewContext(swSrc, { self: swSelf, URL, caches: { match: () => Promise.resolve(null) }, fetch: () => Promise.reject(new Error('offline')), Promise });
+  const routed = u => { let hit = false; handlers.fetch({ request: { method: 'GET', url: u }, respondWith() { hit = true; } }); return hit; };
+  check('service worker handles shell, forecast and fonts only', routed('https://weather.test/') && routed('https://api.open-meteo.com/v1/forecast?x=1') && routed('https://fonts.gstatic.com/a.woff2')
+    && !routed('https://geocoding-api.open-meteo.com/v1/search?name=x') && !routed('https://example.com/'));
+
   console.log(`\n=== smoke test (${reduceMotion ? 'reduced motion' : 'full motion'}) ===`);
   let fail = 0;
   results.forEach(r => { if (!r.ok) fail++; console.log((r.ok ? 'PASS ' : 'FAIL ') + r.name + (r.ok && !r.extra ? '' : r.extra !== undefined ? '   [' + r.extra + ']' : '')); });
