@@ -31,7 +31,22 @@ npm run android:sync     # copy the site into www/ and sync it into android/
 npx cap open android     # open in Android Studio, then Run (device or emulator)
 ```
 
-Needs Android Studio (which installs the SDK) and a JDK. The home-screen widget is native Java in `android/app/src/main/java/com/nathankurien/dotter/WeatherWidgetProvider.java`: it fetches Open-Meteo itself, draws a sky gradient from sun position and conditions (a simplified version of `basePalette`/`skyFor` in `index.html`), and keeps the last response for offline. Each widget keeps its own place, chosen when you add it (the twelve preset cities, or search any place) and changeable later via long-press, Reconfigure (`WeatherWidgetConfigActivity.java`). Long-press the home screen, Widgets, Dotter.
+Needs Android Studio (which installs the SDK) and a JDK.
+
+The home-screen widget is native Java in `android/app/src/main/java/com/nathankurien/dotter/`. It fetches Open-Meteo itself, keeps the last response for offline, and draws the whole widget as one bitmap in the app's style, with a layout chosen from the size the launcher gives it:
+
+| Size | Shows |
+|---|---|
+| 1x1 | the temperature on the sky colour |
+| 2x1 | temperature, place and condition |
+| 2x2 | temperature, condition, high/low, 12 hours of dots |
+| 4x2 | temperature, a 24-hour curve with rain bars, 24 hours of dots |
+| 4x4 | the above with hour ticks and high/low marks |
+
+- `Forecast.java` is a port of `processData`, the sky palette (`basePalette`/`skyFor`/`inkFor`) and the moon maths from `index.html`; keep them in step when the page changes.
+- `SkyPainter.java` draws the gradient, sun and moon glow, clouds, rain and snow; `WidgetArt.java` draws the type, curve and dots for each size.
+- Each widget keeps its own place, chosen when you add it (the twelve preset cities, or search any place) and changeable via long-press, Reconfigure (`WeatherWidgetConfigActivity.java`). Resizing redraws from the saved forecast.
+- Long-press the home screen, Widgets, Dotter.
 
 ## Tests
 
