@@ -314,6 +314,9 @@ function ptr(node, type, x, pointerType) {
   check('app copy has no name or links back to nathankurien.com', !/href="https:\/\/nathankurien\.com/.test(appPage) && !/Back to site/.test(appPage) && !/class="brand"/.test(appPage) && /<header class="top"><\/header>/.test(appPage));
   check('website copy keeps its links and title', /Back to site/.test(HTML) && /<title>Weather \| Nathan Kurien<\/title>/.test(HTML));
   check('app copy is titled Dotter Weather', /<title>Dotter Weather<\/title>/.test(appPage));
+  check('app bundles Fraunces and does not call Google Fonts', /@font-face\{font-family:"Fraunces"/.test(appPage) && !/googleapis|gstatic/.test(appPage)
+    && ['Fraunces.ttf', 'Fraunces-Italic.ttf', 'OFL.txt'].every(f => fs.existsSync(require('path').join(root, 'fonts', f))));
+  check('website still loads Fraunces from Google Fonts', /fonts\.googleapis\.com\/css2/.test(HTML));
   let threw = false; try { appHtml(HTML.replace('Back to site', 'Home')); } catch (e) { threw = true; }
   check('app build fails loudly if the header markup changes', threw);
 

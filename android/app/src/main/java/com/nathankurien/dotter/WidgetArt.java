@@ -1,5 +1,6 @@
 package com.nathankurien.dotter;
 
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -11,6 +12,7 @@ import android.graphics.PorterDuffXfermode;
 import android.graphics.RectF;
 import android.graphics.Shader;
 import android.graphics.Typeface;
+import android.os.Build;
 
 import java.util.Locale;
 
@@ -23,13 +25,22 @@ import java.util.Locale;
 final class WidgetArt {
     private WidgetArt() {}
 
-    static final Typeface SERIF = Typeface.create(Typeface.SERIF, Typeface.NORMAL);
-    static final Typeface SERIF_ITALIC = Typeface.create(Typeface.SERIF, Typeface.ITALIC);
     static final Typeface SANS = Typeface.create("sans-serif", Typeface.NORMAL);
+    // Fraunces, the same variable font files the app bundles (www/fonts); the system serif if they are missing
+    private static Typeface upright, italic;
+    private static boolean fontsTried;
 
     private static final int MAX_PIXELS = 1200000;
 
-    static Bitmap render(Forecast f, String place, int wDp, int hDp, float density) {
+    private static void loadFonts(Context context) {
+        if (fontsTried) return;
+        fontsTried = true;
+        try { upright = Typeface.createFromAsset(context.getAssets(), "public/fonts/Fraunces.ttf"); } catch (Exception e) { upright = null; }
+        try { italic = Typeface.createFromAsset(context.getAssets(), "public/fonts/Fraunces-Italic.ttf"); } catch (Exception e) { italic = null; }
+    }
+
+    static Bitmap render(Context context, Forecast f, String place, int wDp, int hDp, float density) {
+        loadFonts(context);
         float scale = density;
         if ((double) wDp * hDp * scale * scale > MAX_PIXELS) scale = (float) Math.sqrt(MAX_PIXELS / ((double) wDp * hDp));
         Bitmap bm = Bitmap.createBitmap(Math.max(1, Math.round(wDp * scale)), Math.max(1, Math.round(hDp * scale)), Bitmap.Config.ARGB_8888);
@@ -67,7 +78,7 @@ final class WidgetArt {
     /** 1x1: colour and a number. */
     private static void tile(Canvas cv, Forecast f, Forecast.Hour now, float w, float h, float[] ink) {
         float size = Math.min(h * 0.6f, 34);
-        Paint p = paint(SERIF, size, col(ink, 1));
+        Paint p = serif(false, size, col(ink, 1));
         String t = String.valueOf(Math.round(now.temp));
         float tw = p.measureText(t), dw = size * 0.34f;
         float x = (w - tw - dw) / 2;
@@ -79,7 +90,7 @@ final class WidgetArt {
     private static void strip(Canvas cv, Forecast f, Forecast.Hour now, String place, float w, float h, float[] ink) {
         float pad = 14, size = Math.min(h * 0.58f, 40);
         float base = h / 2 + size * 0.34f;
-        Paint p = paint(SERIF, size, col(ink, 1));
+        Paint p = serif(false, size, col(ink, 1));
         String t = String.valueOf(Math.round(now.temp));
         cv.drawText(t, pad, base, p);
         float tw = p.measureText(t);
@@ -87,7 +98,7 @@ final class WidgetArt {
         float x = pad + tw + size * 0.34f + 12, room = w - x - pad;
         if (room > 36) {
             eyebrow(cv, place, x, h / 2 - 3, 8.5f, ink, room);
-            Paint c = paint(SERIF_ITALIC, 12, col(ink, 1));
+            Paint c = serif(true, 12, col(ink, 1));
             drawFit(cv, now.label, x, h / 2 + 13, c, room);
         }
     }
@@ -98,7 +109,7 @@ final class WidgetArt {
         float eb = pad + 8, tb = eb + 8 + size * 0.78f, cb = tb + 17, hb = cb + 14;
         eyebrow(cv, place, pad, eb, 9, ink, w - 2 * pad);
         number(cv, now, pad, tb, size, ink);
-        Paint c = paint(SERIF_ITALIC, 14, col(ink, 1));
+        Paint c = serif(true, 14, col(ink, 1));
         drawFit(cv, now.label, pad, cb, c, w - 2 * pad);
         if (h >= 110) hiLo(cv, f, now, pad, hb, 10.5f, ink);
         if (h >= 135 && f.hours.size() - f.nowIdx >= 12) stipple(cv, f, f.nowIdx, 12, pad, w - pad, h - pad - 6, ink);
@@ -110,7 +121,7 @@ final class WidgetArt {
         float eb = pad + 8, tb = eb + 8 + size * 0.78f, cb = tb + 17, hb = cb + 14;
         eyebrow(cv, place, pad, eb, 9, ink, leftW);
         number(cv, now, pad, tb, size, ink);
-        Paint c = paint(SERIF_ITALIC, 14, col(ink, 1));
+        Paint c = serif(true, 14, col(ink, 1));
         drawFit(cv, now.label, pad, cb, c, leftW);
         if (h >= 120) hiLo(cv, f, now, pad, hb, 10.5f, ink);
 
@@ -128,7 +139,7 @@ final class WidgetArt {
         float tb = pad + 16 + size * 0.78f;
         number(cv, now, pad, tb, size, ink);
         float cb = tb + 22;
-        Paint c = paint(SERIF_ITALIC, 17, col(ink, 1));
+        Paint c = serif(true, 17, col(ink, 1));
         drawFit(cv, now.label, pad, cb, c, w * 0.55f);
         Forecast.Day d = f.days.get(now.day);
         Paint hl = paint(SANS, 11, col(ink, 0.66));
@@ -149,14 +160,14 @@ final class WidgetArt {
 
     /** The big numeral with its small raised degree sign. */
     private static void number(Canvas cv, Forecast.Hour now, float x, float base, float size, float[] ink) {
-        Paint p = paint(SERIF, size, col(ink, 1));
+        Paint p = serif(false, size, col(ink, 1));
         String t = String.valueOf(Math.round(now.temp));
         cv.drawText(t, x, base, p);
         degree(cv, x + p.measureText(t), base, size, ink, 1);
     }
 
     private static void degree(Canvas cv, float x, float base, float size, float[] ink, double a) {
-        Paint p = paint(SERIF, size * 0.4f, col(ink, a));
+        Paint p = serif(false, size * 0.4f, col(ink, a));
         cv.drawText("°", x + size * 0.03f, base - size * 0.42f, p);
     }
 
@@ -288,6 +299,23 @@ final class WidgetArt {
         p.setTypeface(tf);
         p.setTextSize(size);
         p.setColor(color);
+        return p;
+    }
+
+    /** Fraunces at this size: light for big numerals, regular when small; lining, tabular figures as in the app. */
+    private static Paint serif(boolean ital, float size, int color) {
+        Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+        Typeface tf = ital ? italic : upright;
+        p.setTypeface(tf != null ? tf : Typeface.create(Typeface.SERIF, ital ? Typeface.ITALIC : Typeface.NORMAL));
+        p.setTextSize(size);
+        p.setColor(color);
+        if (tf != null) {
+            p.setFontFeatureSettings("lnum, tnum");
+            if (Build.VERSION.SDK_INT >= 26) {
+                int wght = size >= 28 ? 300 : size >= 16 ? 350 : 400;
+                p.setFontVariationSettings("'wght' " + wght + ", 'opsz' " + Math.round(Math.max(9, Math.min(144, size))) + ", 'SOFT' 0, 'WONK' 0");
+            }
+        }
         return p;
     }
 

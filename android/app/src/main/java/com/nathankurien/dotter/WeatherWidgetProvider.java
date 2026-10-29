@@ -113,7 +113,7 @@ public class WeatherWidgetProvider extends AppWidgetProvider {
             try {
                 Forecast f = Forecast.parse(new JSONObject(json), lat(prefs, id), lon(prefs, id));
                 int[] size = sizeDp(context, mgr, id);
-                Bitmap bm = WidgetArt.render(f, place, size[0], size[1], context.getResources().getDisplayMetrics().density);
+                Bitmap bm = WidgetArt.render(context, f, place, size[0], size[1], context.getResources().getDisplayMetrics().density);
                 v.setImageViewBitmap(R.id.widget_sky, bm);
                 v.setContentDescription(R.id.widget_sky, WidgetArt.describe(f, place));
             } catch (Exception e) {
