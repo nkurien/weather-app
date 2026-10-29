@@ -1,4 +1,4 @@
-# Weather
+# Dotter Weather
 
 A colour-driven weather page, London first. One static `index.html`, no build, no backend, no runtime dependencies. Forecast and place search come from [Open-Meteo](https://open-meteo.com/) straight from the visitor's browser.
 
@@ -31,11 +31,11 @@ npm run android:sync     # copy the site into www/ and sync it into android/
 npx cap open android     # open in Android Studio, then Run (device or emulator)
 ```
 
-Needs Android Studio (which installs the SDK) and a JDK. The home-screen widget is native Java in `android/app/src/main/java/com/nathankurien/weather/WeatherWidgetProvider.java`: it fetches Open-Meteo itself, draws a sky gradient from sun position and conditions (a simplified version of `basePalette`/`skyFor` in `index.html`), and keeps the last response for offline. Each widget keeps its own place, chosen when you add it (the twelve preset cities, or search any place) and changeable later via long-press, Reconfigure (`WeatherWidgetConfigActivity.java`). Long-press the home screen, Widgets, Weather.
+Needs Android Studio (which installs the SDK) and a JDK. The home-screen widget is native Java in `android/app/src/main/java/com/nathankurien/dotter/WeatherWidgetProvider.java`: it fetches Open-Meteo itself, draws a sky gradient from sun position and conditions (a simplified version of `basePalette`/`skyFor` in `index.html`), and keeps the last response for offline. Each widget keeps its own place, chosen when you add it (the twelve preset cities, or search any place) and changeable later via long-press, Reconfigure (`WeatherWidgetConfigActivity.java`). Long-press the home screen, Widgets, Dotter.
 
 ## Tests
 
-`npm test` runs `tests/smoke.js` twice, in normal and reduced-motion mode (85 checks each). It uses jsdom with synthetic forecast and geocoding responses, so it never touches the network. It covers data grouping (including a 25-hour clock-change day), scrubbing, place switching, place search and removal, hostile URL hashes, and the moon maths. It cannot judge layout or looks, so check changes in a real browser too, at 360 px and desktop width.
+`npm test` runs `tests/smoke.js` twice, in normal and reduced-motion mode (89 checks each). It uses jsdom with synthetic forecast and geocoding responses, so it never touches the network. It covers data grouping (including a 25-hour clock-change day), scrubbing, place switching, place search and removal, hostile URL hashes, and the moon maths. It cannot judge layout or looks, so check changes in a real browser too, at 360 px and desktop width.
 
 ## How it works (technical notes)
 

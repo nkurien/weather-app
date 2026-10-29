@@ -308,6 +308,15 @@ function ptr(node, type, x, pointerType) {
   check('service worker handles shell, forecast and fonts only', routed('https://weather.test/') && routed('https://api.open-meteo.com/v1/forecast?x=1') && routed('https://fonts.gstatic.com/a.woff2')
     && !routed('https://geocoding-api.open-meteo.com/v1/search?name=x') && !routed('https://example.com/'));
 
+  // ---- the Android app is standalone
+  const { appHtml } = require('../scripts/build-www.js');
+  const appPage = appHtml(HTML);
+  check('app copy has no name or links back to nathankurien.com', !/href="https:\/\/nathankurien\.com/.test(appPage) && !/Back to site/.test(appPage) && !/class="brand"/.test(appPage) && /<header class="top"><\/header>/.test(appPage));
+  check('website copy keeps its links and title', /Back to site/.test(HTML) && /<title>Weather \| Nathan Kurien<\/title>/.test(HTML));
+  check('app copy is titled Dotter Weather', /<title>Dotter Weather<\/title>/.test(appPage));
+  let threw = false; try { appHtml(HTML.replace('Back to site', 'Home')); } catch (e) { threw = true; }
+  check('app build fails loudly if the header markup changes', threw);
+
   console.log(`\n=== smoke test (${reduceMotion ? 'reduced motion' : 'full motion'}) ===`);
   let fail = 0;
   results.forEach(r => { if (!r.ok) fail++; console.log((r.ok ? 'PASS ' : 'FAIL ') + r.name + (r.ok && !r.extra ? '' : r.extra !== undefined ? '   [' + r.extra + ']' : '')); });

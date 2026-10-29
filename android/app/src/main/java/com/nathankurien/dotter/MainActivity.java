@@ -1,4 +1,4 @@
-package com.nathankurien.weather;
+package com.nathankurien.dotter;
 
 import com.getcapacitor.BridgeActivity;
 

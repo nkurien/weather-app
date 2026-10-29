@@ -10,6 +10,6 @@
     android:updatePeriodMillis="1800000"
     android:initialLayout="@layout/widget_weather"
     android:description="@string/widget_description"
-    android:configure="com.nathankurien.weather.WeatherWidgetConfigActivity"
+    android:configure="com.nathankurien.dotter.WeatherWidgetConfigActivity"
     android:widgetFeatures="reconfigurable"
     android:widgetCategory="home_screen" />

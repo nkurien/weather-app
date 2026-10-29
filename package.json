@@ -1,5 +1,5 @@
 {
-  "name": "weather",
+  "name": "dotter",
   "version": "0.1.0",
   "private": true,
   "description": "Colour-driven London weather page (single static HTML file, no build)",

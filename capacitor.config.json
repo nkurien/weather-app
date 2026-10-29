@@ -1,6 +1,6 @@
 {
-  "appId": "com.nathankurien.weather",
-  "appName": "Weather",
+  "appId": "com.nathankurien.dotter",
+  "appName": "Dotter",
   "webDir": "www",
   "backgroundColor": "#0b1026"
 }
