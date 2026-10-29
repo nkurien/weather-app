@@ -22,7 +22,7 @@ npm install && npm test
 
 `manifest.webmanifest`, `sw.js` and `icons/` make the site installable and usable offline. On Android Chrome use menu, Install app. On iOS Safari use Share, Add to Home Screen (iOS has no install prompt). Offline it opens from cache and shows the last forecast it fetched. The service worker only registers over https or on localhost. To force every visitor onto a new shell, bump `VERSION` in `sw.js`. Icons are rendered from `icons/icon.svg` with `rsvg-convert -w 512 icons/icon.svg -o icons/icon-512.png` (and 192, and 180 for `apple-touch-icon.png`).
 
-## Android app
+## Android app and widget
 
 The site is wrapped with [Capacitor](https://capacitorjs.com/); the generated project is in `android/` and bundles the web files, so the app works offline.
 
@@ -31,7 +31,7 @@ npm run android:sync     # copy the site into www/ and sync it into android/
 npx cap open android     # open in Android Studio, then Run (device or emulator)
 ```
 
-Needs Android Studio (which installs the SDK) and a JDK.
+Needs Android Studio (which installs the SDK) and a JDK. The home-screen widget is native Java in `android/app/src/main/java/com/nathankurien/weather/WeatherWidgetProvider.java`: it fetches Open-Meteo itself, draws a sky gradient from sun position and conditions (a simplified version of `basePalette`/`skyFor` in `index.html`), and keeps the last response for offline. Each widget keeps its own place, chosen when you add it (the twelve preset cities, or search any place) and changeable later via long-press, Reconfigure (`WeatherWidgetConfigActivity.java`). Long-press the home screen, Widgets, Weather.
 
 ## Tests
 
