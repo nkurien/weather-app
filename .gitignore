@@ -22,3 +22,12 @@ npm-debug.log*
 # Cloudflare / Wrangler
 .wrangler/
 .dev.vars
+
+# Capacitor
+www/
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties
+android/app/src/main/assets/public/
+android/capacitor-cordova-android-plugins/
