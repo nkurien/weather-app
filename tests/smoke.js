@@ -216,7 +216,7 @@ function ptr(node, type, x, pointerType) {
   await sleep(1500);
   check('place switch updates label and URL', txt('placeName') === 'London' && /latitude=51\.5074/.test(w.__lastUrl), txt('placeName'));
   check('hash updated', w.location.hash === '#london', w.location.hash);
-  check('selected time kept across place switch', S.hours[S.pos].t === S.selTime);
+  check('selected time kept across place switch', S.hours[S.pos].utc === S.selUtc);
 
   // ---- add a place by search
   const finder = d.getElementById('finder'), q = d.getElementById('q'), addBtn = d.querySelector('.chip.add');

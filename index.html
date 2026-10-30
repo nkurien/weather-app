@@ -515,7 +515,7 @@ function load(place,force){
    5. STATE: S is what the user has chosen, T is where the visuals are
    heading, D is where they currently are (eased towards T every frame).
 ===================================================================== */
-var S={place:PLACES[0],dataPlace:null,tz:'',hours:[],days:[],nowIdx:0,pos:0,curDay:-1,curN:24,followNow:true,selTime:null,updatedAt:0};
+var S={place:PLACES[0],dataPlace:null,tz:'',hours:[],days:[],nowIdx:0,pos:0,curDay:-1,curN:24,followNow:true,selUtc:null,updatedAt:0};
 var T={top:[8,12,30],bot:[20,26,56],cloud:0,rain:0,snow:0,fog:0,storm:0,wx:0,wind:0,temp:0,
   sunX:.5,sunY:1,sunB:0,moonX:.5,moonY:.4,moonB:0,moonF:.5,moonVx:1,moonVy:0,cf:.5,dmin:0,dmax:10,
   cv:new Array(48).fill(0),bar:new Array(25).fill(0),barOp:new Array(25).fill(0)};
@@ -653,7 +653,7 @@ function setPos(i,user){
   if(!S.hours.length) return;
   i=clamp(Math.round(i),0,S.hours.length-1);
   if(user!==false){S.followNow=(i===S.nowIdx);}
-  S.pos=i;S.selTime=S.hours[i].t;
+  S.pos=i;S.selUtc=S.hours[i].utc;
   applyPos();
 }
 
@@ -1156,8 +1156,13 @@ function selectPlace(id,opts){
     S.hours=data.hours;S.days=data.days;S.nowIdx=data.nowIdx;S.curDay=-1;S.updatedAt=Date.now();
     S.dataPlace=data.place;S.tz=data.tz;
     var idx=S.nowIdx;
-    if(!S.followNow&&S.selTime){
-      for(var i=0;i<S.hours.length;i++){if(S.hours[i].t===S.selTime){idx=i;break;}}
+    if(!S.followNow&&S.selUtc!=null){
+      // keep the same instant, not the same wall-clock time, so 1am London becomes 8pm New York
+      var best=Infinity;
+      for(var i=0;i<S.hours.length;i++){
+        var gap=Math.abs(S.hours[i].utc-S.selUtc);
+        if(gap<best){best=gap;idx=i;}
+      }
     }
     buildWeek();buildCurve();
     setPos(idx,false);
